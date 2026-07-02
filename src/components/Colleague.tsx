@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Html } from '@react-three/drei';
 
 // =====================================================
 // SHARED GEOMETRIES & MATERIALS (created once, reused by all 19 colleagues)
@@ -46,12 +47,14 @@ interface ColleagueProps {
   id: number;
   position: [number, number, number];
   rotationY: number;
+  activeChatMessage?: string | null;
 }
 
 export const Colleague: React.FC<ColleagueProps> = ({
   id,
   position,
-  rotationY
+  rotationY,
+  activeChatMessage
 }) => {
   const headRef = useRef<THREE.Mesh>(null);
   const leftArmRef = useRef<THREE.Group>(null);
@@ -101,6 +104,19 @@ export const Colleague: React.FC<ColleagueProps> = ({
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Chat Speech Bubble */}
+      {activeChatMessage && (
+        <Html position={[0, 1.7, 0]} center>
+          <div className="relative flex flex-col items-center select-none pointer-events-none transition-all duration-300 transform scale-100 origin-bottom select-none">
+            {/* Bubble Body */}
+            <div className="bg-white/95 backdrop-blur-sm text-slate-800 px-3 py-1.5 rounded-xl shadow-xl border border-slate-100 flex items-center justify-center text-xs font-semibold w-max max-w-[240px] text-center whitespace-normal break-words">
+              {activeChatMessage}
+            </div>
+            {/* Tail triangle */}
+            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white/95 drop-shadow-md -mt-0.5"></div>
+          </div>
+        </Html>
+      )}
       
       {/* ---------------- CHARACTER ---------------- */}
       {/* Torso */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera, OrbitControls } from '@react-three/drei';
@@ -6,6 +6,8 @@ import { IsometricRoom } from './IsometricRoom';
 import { Avatar } from './Avatar';
 import { EmojiParticles } from './EmojiParticles';
 import type { EmojiParticlesHandle } from './EmojiParticles';
+import { ChatBox } from './Chat/ChatBox';
+import type { ChatMessage } from './Chat/ChatBox';
 import type { AvatarOutfit } from '../App';
 
 export interface DeskConfig {
@@ -136,6 +138,110 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   const [isWalking, setIsWalking] = useState<boolean>(false);
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([0, 0, 0]); // Standing on rug
 
+  // Chat states
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
+    { id: '1', sender: 'ระบบ', text: 'ยินดีต้อนรับสู่ Ufriend Virtual Office! สามารถควบคุมด้วย WASD/ลูกศร หรือคลิกเดินได้ และพิมพ์ข้อความในช่องแชทซ้ายบนได้เลยครับ', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isPlayer: false }
+  ]);
+  const [playerChatMessage, setPlayerChatMessage] = useState<string | null>(null);
+  const [npcChatMessages, setNpcChatMessages] = useState<Record<number, string | null>>({});
+  const [chatInput, setChatInput] = useState<string>('');
+  
+  const playerChatTimerRef = useRef<any>(null);
+  const npcTimersRef = useRef<Record<number, any>>({});
+
+  const handleSendMessage = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const newMessage = {
+      id: Math.random().toString(),
+      sender: 'คุณ',
+      text: chatInput.trim(),
+      timestamp: timeStr,
+      isPlayer: true,
+    };
+
+    setChatHistory((prev) => [...prev, newMessage]);
+    setPlayerChatMessage(chatInput.trim());
+    setChatInput('');
+
+    // Clear old timer and start a new 5-second timer for player's speech bubble
+    if (playerChatTimerRef.current) {
+      clearTimeout(playerChatTimerRef.current);
+    }
+    playerChatTimerRef.current = setTimeout(() => {
+      setPlayerChatMessage(null);
+      playerChatTimerRef.current = null;
+    }, 5000);
+  };
+
+  // Simulate other colleagues randomly typing in chat
+  useEffect(() => {
+    const npcNames = ["เอ็ม", "บิว", "จอย", "ป๊อป", "นิว", "กิ๊ฟ", "ท็อป", "แป้ง", "อาร์ต", "เบล", "เต้ย", "แนน", "บอส", "เจมส์", "พราว", "โอ๊ต", "ตั้ม", "เนย", "พีท"];
+    const npcMessages = [
+      "ใครเอาขนมปังเนยสดของผมในตู้เย็นไปป่ะครับ? 😭",
+      "ประชุมบ่ายนี้ขอนั่งฟังเงียบๆ นะครับ งานล้นมือมาก",
+      "WFH วันนี้เน็ตอืดมากกกกก มีใครเป็นบ้าง",
+      "บั๊กตัวนี้แก้มา 3 ชั่วโมงแล้ว ยังหาไม่เจอเลยครับ 😵‍💫",
+      "ขอตัวไปชงกาแฟแก้วที่ 3 แป๊บนะครับ",
+      "ส่งรายงานประจำวันก่อน 5 โมงเย็นนะทุกคน",
+      "ประชุมทีมวันนี้มีสรุปอะไรสำคัญไหมครับ พอดีติดสายลูกค้า",
+      "บ่ายนี้มีใครสั่งชานมไข่มุกไหมมมม 🧋",
+      "งานเสร็จแล้ว! วันนี้ขอปิดคอมเร็วหน่อยนะครับ",
+      "กำลังเร่งทำสไลด์นำเสนออยู่ครับ เดี๋ยวส่งให้ตรวจ",
+      "วันเสาร์นี้มีใครเข้าออฟฟิศจริงบ้างไหมครับ?",
+      "ขอลิ้งก์ Zoom บ่ายนี้หน่อยครับ หาไม่เจอ",
+    ];
+
+    const interval = setInterval(() => {
+      // Find desks with colleagues that are not active player desk
+      const activeColleagues = desks.filter((d) => d.hasColleague !== false && d.id !== activeDesk);
+      if (activeColleagues.length === 0) return;
+
+      const randomDesk = activeColleagues[Math.floor(Math.random() * activeColleagues.length)];
+      const randomText = npcMessages[Math.floor(Math.random() * npcMessages.length)];
+      const senderName = npcNames[randomDesk.id % npcNames.length];
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newMsg = {
+        id: Math.random().toString(),
+        sender: senderName,
+        text: randomText,
+        timestamp: timeStr,
+        isPlayer: false,
+      };
+
+      setChatHistory((prev) => [...prev, newMsg]);
+      
+      // Update NPC speech bubble
+      setNpcChatMessages((prev) => ({
+        ...prev,
+        [randomDesk.id]: randomText,
+      }));
+
+      // Set timer to clear speech bubble after 5 seconds
+      if (npcTimersRef.current[randomDesk.id]) {
+        clearTimeout(npcTimersRef.current[randomDesk.id]);
+      }
+      npcTimersRef.current[randomDesk.id] = setTimeout(() => {
+        setNpcChatMessages((prev) => ({
+          ...prev,
+          [randomDesk.id]: null,
+        }));
+        delete npcTimersRef.current[randomDesk.id];
+      }, 5000);
+
+    }, 20000); // Send message every 20 seconds
+
+    return () => {
+      clearInterval(interval);
+      // Clean up all timers on unmount
+      if (playerChatTimerRef.current) clearTimeout(playerChatTimerRef.current);
+      Object.values(npcTimersRef.current).forEach(clearTimeout);
+    };
+  }, [desks, activeDesk]);
+
   const handleSelectDesk = (id: number) => {
     if (isWalking) return;
     setIsWalking(true);
@@ -157,6 +263,11 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     if (isWalking && activeDesk === null) return;
     setIsWalking(true);
     setActiveDesk(null);
+  };
+
+  const handleStandUp = () => {
+    setActiveDesk(null);
+    setIsWalking(false);
   };
 
   const handleSelectFloor = (point: THREE.Vector3) => {
@@ -278,6 +389,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
             desks={desks}
             theme={theme}
             triggerSip={triggerSip}
+            npcChatMessages={npcChatMessages}
           />
 
           {/* Avatar Sitter - Walks from previous position to the new targetPosition */}
@@ -292,6 +404,10 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
               sipTrigger={sipTrigger}
               outfit={outfit}
               onKeyboardStartMove={handleKeyboardStartMove}
+              onSitAtDesk={handleSelectDesk}
+              onStandUp={handleStandUp}
+              activeChatMessage={playerChatMessage}
+              theme={theme}
             />
           </React.Suspense>
 
@@ -312,6 +428,15 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
           target={[0, 0.2, 0]}
         />
       </Canvas>
+
+      {/* 2D Chat UI Overlay Component (positioned at top-left below title) */}
+      <ChatBox 
+        chatHistory={chatHistory}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        handleSendMessage={handleSendMessage}
+        theme={theme}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGLTF, useAnimations } from '@react-three/drei';
+import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
 import type { EmojiParticlesHandle } from './EmojiParticles';
 import type { DeskConfig } from './OfficeScene';
@@ -18,6 +18,10 @@ interface AvatarProps {
   sipTrigger: number;
   outfit: AvatarOutfit;
   onKeyboardStartMove?: () => void;
+  onSitAtDesk?: (id: number) => void;
+  onStandUp?: () => void;
+  activeChatMessage?: string | null;
+  theme?: 'day' | 'sunset' | 'night';
 }
 
 const ROBOT_URL = '/RobotExpressive.glb';
@@ -34,19 +38,87 @@ export const Avatar: React.FC<AvatarProps> = ({
   desks,
   sipTrigger,
   outfit,
-  onKeyboardStartMove
+  onKeyboardStartMove,
+  onSitAtDesk,
+  onStandUp,
+  activeChatMessage,
+  theme = 'day'
 }) => {
   const analyzer = useAudioAnalyzer();
 
   // Keyboard tracking state
   const keysPressed = useRef<Record<string, boolean>>({});
+  
+  // State to track if we are close to an empty desk (for Spacebar sit prompt)
+  const [nearbyDeskId, setNearbyDeskId] = useState<number | null>(null);
+  const lastStateCheck = useRef<number>(0);
+  
+  // State for E key emoji selector menu
+  const [showEmojiMenu, setShowEmojiMenu] = useState<boolean>(false);
+
+  // State and ref for the floating thought bubble emoji
+  const [activeThoughtEmoji, setActiveThoughtEmoji] = useState<string | null>(null);
+  const thoughtTimerRef = useRef<any>(null);
+
+  // Clean up thought bubble timer on unmount
+  useEffect(() => {
+    return () => {
+      if (thoughtTimerRef.current) {
+        clearTimeout(thoughtTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore key events if the user is typing in a chat input or form field
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        return;
+      }
+
       const key = e.key.toUpperCase();
       if (['W', 'A', 'S', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT'].includes(key)) {
         keysPressed.current[key] = true;
+        setShowEmojiMenu(false); // Close emoji selector when starting to move
         if (onKeyboardStartMove) onKeyboardStartMove();
+      }
+      
+      // E Key to toggle emoji selector menu
+      if (key === 'E') {
+        e.preventDefault();
+        setShowEmojiMenu((prev) => !prev);
+      }
+      
+      // Spacebar to sit / stand up
+      if (e.key === ' ' || e.code === 'Space') {
+        // Prevent default browser page scroll
+        e.preventDefault();
+        
+        if (activeDesk !== null) {
+          if (onStandUp) onStandUp();
+        } else if (!isWalking) {
+          // Find if we are near any empty desk
+          let foundDeskId: number | null = null;
+          for (const desk of desks) {
+            if (desk.hasColleague === false) {
+              const rotY = desk.rotationY || 0;
+              const offsetZ = -0.65 * Math.cos(rotY);
+              const offsetX = -0.65 * Math.sin(rotY);
+              const cx = desk.position[0] + offsetX;
+              const cz = desk.position[2] + offsetZ;
+
+              const distSq = (currentPos.current.x - cx) * (currentPos.current.x - cx) + (currentPos.current.z - cz) * (currentPos.current.z - cz);
+              if (distSq < 1.2 * 1.2) {
+                foundDeskId = desk.id;
+                break;
+              }
+            }
+          }
+          if (foundDeskId !== null && onSitAtDesk) {
+            onSitAtDesk(foundDeskId);
+          }
+        }
       }
     };
 
@@ -63,7 +135,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [onKeyboardStartMove]);
+  }, [onKeyboardStartMove, onSitAtDesk, onStandUp, activeDesk, isWalking, desks]);
 
   // Load the GLTF model and animations
   const { scene, animations } = useGLTF(ROBOT_URL);
@@ -85,6 +157,36 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Spawner cooldown & emojis
   const lastSpawnTime = useRef<number>(0);
   const emojiPool = ['❤️', '😂', '✨', '🎉', '🔥', '👍', '😮', '💻', '🕶️', '🚀'];
+
+  const handleSelectEmoji = (emoji: string) => {
+    if (emojiParticlesRef.current && avatarGroupRef.current) {
+      const spawnPos: [number, number, number] = [
+        currentPos.current.x,
+        currentPos.current.y + 0.9,
+        currentPos.current.z
+      ];
+      for (let i = 0; i < 4; i++) {
+        const offsetPos: [number, number, number] = [
+          spawnPos[0] + (Math.random() - 0.5) * 0.3,
+          spawnPos[1] + (Math.random() - 0.5) * 0.2,
+          spawnPos[2] + (Math.random() - 0.5) * 0.3
+        ];
+        emojiParticlesRef.current.spawn(emoji, offsetPos);
+      }
+    }
+    
+    // Trigger floating thought bubble
+    setActiveThoughtEmoji(emoji);
+    if (thoughtTimerRef.current) {
+      clearTimeout(thoughtTimerRef.current);
+    }
+    thoughtTimerRef.current = setTimeout(() => {
+      setActiveThoughtEmoji(null);
+      thoughtTimerRef.current = null;
+    }, 2500); // Show bubble for 2.5 seconds
+    
+    setShowEmojiMenu(false);
+  };
 
   // Walk Animation Ref states
   const currentPos = useRef(new THREE.Vector3(0, 0, 0)); // Initial standing position on the rug
@@ -363,6 +465,34 @@ export const Avatar: React.FC<AvatarProps> = ({
       avatarGroupRef.current.rotation.y = currentRotY.current;
     }
 
+    // Periodic check for nearby empty desks to display the Space sit prompt
+    if (time - lastStateCheck.current > 0.1) {
+      lastStateCheck.current = time;
+      
+      let foundNearbyDeskId: number | null = null;
+      if (activeDesk === null && !isWalking) {
+        for (const desk of desks) {
+          if (desk.hasColleague === false) {
+            const rotY = desk.rotationY || 0;
+            const offsetZ = -0.65 * Math.cos(rotY);
+            const offsetX = -0.65 * Math.sin(rotY);
+            const cx = desk.position[0] + offsetX;
+            const cz = desk.position[2] + offsetZ;
+
+            const distSq = (currentPos.current.x - cx) * (currentPos.current.x - cx) + (currentPos.current.z - cz) * (currentPos.current.z - cz);
+            if (distSq < 1.1 * 1.1) {
+              foundNearbyDeskId = desk.id;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (foundNearbyDeskId !== nearbyDeskId) {
+        setNearbyDeskId(foundNearbyDeskId);
+      }
+    }
+
     // --- 2. Speak/Emoji Reactions ---
     // Speak reaction (Robot GLTF animation trigger)
     if (outfit.type === 'robot' && !isWalking && volume > 0.35 && time - lastSpawnTime.current > 1.5) {
@@ -480,12 +610,81 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Adjust height offsets
   const isSeated = activeDesk !== null && !isWalking;
   const positionOffsetZ = isSeated ? 0.05 : 0;
-  // Robot stands on the chair (0.45), Human sits on it (0.3 so legs rest at ~0.49)
   const positionOffsetY = isSeated ? (outfit.type === 'robot' ? 0.45 : 0.3) : 0;
-
   return (
     <group ref={avatarGroupRef}>
       <group position={[0, positionOffsetY, positionOffsetZ]}>
+        {/* Floating Thought Bubble */}
+        {activeThoughtEmoji && !activeChatMessage && (
+          <Html position={[0, outfit.type === 'robot' ? 1.6 : 2.0, 0]} center>
+            <div className="relative flex flex-col items-center select-none pointer-events-none transition-all duration-300 transform scale-100 origin-bottom select-none animate-bounce">
+              {/* Main Bubble */}
+              <div className="bg-white/95 backdrop-blur-sm text-slate-800 px-3 py-1.5 rounded-2xl shadow-2xl border border-slate-100 flex items-center justify-center text-xl min-w-[38px] min-h-[38px]">
+                {activeThoughtEmoji}
+              </div>
+              {/* Tail dots */}
+              <div className="w-2.5 h-2.5 bg-white/95 border border-slate-200 rounded-full mt-1 shadow-md self-center"></div>
+              <div className="w-1.5 h-1.5 bg-white/95 border border-slate-200 rounded-full mt-0.5 ml-1.5 shadow-sm self-center"></div>
+            </div>
+          </Html>
+        )}
+
+        {/* Chat Speech Bubble */}
+        {activeChatMessage && (
+          <Html position={[0, outfit.type === 'robot' ? 1.7 : 2.1, 0]} center>
+            <div className="relative flex flex-col items-center select-none pointer-events-none transition-all duration-300 transform scale-100 origin-bottom select-none">
+              {/* Bubble Body */}
+              <div className="bg-white/95 backdrop-blur-sm text-slate-800 px-3 py-1.5 rounded-xl shadow-xl border border-slate-100 flex items-center justify-center text-xs font-semibold w-max max-w-[240px] text-center whitespace-normal break-words">
+                {activeChatMessage}
+              </div>
+              {/* Tail triangle */}
+              <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-white/95 drop-shadow-md -mt-0.5"></div>
+            </div>
+          </Html>
+        )}
+
+        {/* E Key Emoji Menu */}
+        {showEmojiMenu && (
+          <Html position={[0, outfit.type === 'robot' ? 1.5 : 1.9, 0]} center>
+            <div 
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-slate-900/95 backdrop-blur-md border border-slate-700 p-2 rounded-xl shadow-2xl flex flex-wrap gap-1.5 w-[160px] justify-center select-none z-50 pointer-events-auto"
+            >
+              {emojiPool.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectEmoji(emoji);
+                  }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-700 text-base transition-colors duration-150 active:scale-90"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </Html>
+        )}
+
+        {/* Spacebar tooltip (Sit down only, no exit prompt) */}
+        {nearbyDeskId !== null && activeDesk === null && (
+          <Html position={[0, outfit.type === 'robot' ? 1.4 : 1.7, 0]} center>
+            <div className={`backdrop-blur-sm px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-lg flex items-center gap-1.5 animate-bounce select-none pointer-events-none border transition-all duration-500 ${
+              theme === 'night' 
+                ? 'bg-slate-900/95 text-white border-slate-700' 
+                : 'bg-white/95 text-slate-800 border-white/60 shadow-md'
+            }`}>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase font-mono border shadow-inner transition-all duration-500 ${
+                theme === 'night' 
+                  ? 'bg-slate-700 text-slate-100 border-slate-600' 
+                  : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>Space</span>
+              <span className="text-sm leading-none" role="img" aria-label="chair">🪑</span>
+            </div>
+          </Html>
+        )}
         
         {/* Render ROBOT CLASS */}
         {outfit.type === 'robot' && (

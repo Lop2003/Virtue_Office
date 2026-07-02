@@ -379,6 +379,7 @@ interface IsometricRoomProps {
   desks: DeskConfig[];
   theme: 'day' | 'sunset' | 'night';
   triggerSip: (deskPosition: [number, number, number]) => void;
+  npcChatMessages: Record<number, string | null>;
 }
 
 export const IsometricRoom: React.FC<IsometricRoomProps> = ({ 
@@ -387,7 +388,8 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
   onSelectFloor,
   desks,
   theme,
-  triggerSip
+  triggerSip,
+  npcChatMessages
 }) => {
   // Theme-dependent plank palettes
   const getPlankPalette = () => {
@@ -670,6 +672,7 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
                 id={desk.id}
                 position={chairPos}
                 rotationY={rotY}
+                activeChatMessage={npcChatMessages[desk.id]}
               />
             )}
           </group>
