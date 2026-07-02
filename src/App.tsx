@@ -4,9 +4,15 @@ import { OfficeScene, DESK_CONFIGS } from './components/OfficeScene';
 import { Dashboard } from './components/Dashboard';
 import type { EmojiParticlesHandle } from './components/EmojiParticles';
 import type { DeskConfig } from './components/OfficeScene';
+import { CHARACTER_OPTIONS, type AvatarType, type CharacterOption } from './utils/avatarCharacters';
 
 export interface AvatarOutfit {
-  type: 'robot' | 'human';
+  type: AvatarType;
+  characterId: string;
+  modelUrl?: string;
+  modelScale?: number;
+  modelYOffset?: number;
+  modelRotationY?: number;
   hairStyle: 'short' | 'long' | 'cap' | 'none';
   hairColor: string;
   clothingStyle: 'shirt' | 'hoodie' | 'suit';
@@ -26,8 +32,10 @@ function App() {
   const [desks, setDesks] = useState<DeskConfig[]>(DESK_CONFIGS);
   const [sipTrigger, setSipTrigger] = useState<number>(0);
   const [activeDesk, setActiveDesk] = useState<number | null>(null);
+  const [hasEnteredOffice, setHasEnteredOffice] = useState<boolean>(false);
   const [outfit, setOutfit] = useState<AvatarOutfit>({
     type: 'robot',
+    characterId: 'robot',
     hairStyle: 'short',
     hairColor: '#ca8a04',
     clothingStyle: 'hoodie',
@@ -36,6 +44,18 @@ function App() {
     hasGlasses: false,
     hasHeadphones: false
   });
+
+  const selectCharacter = (character: CharacterOption) => {
+    setOutfit((prev) => ({
+      ...prev,
+      type: character.type,
+      characterId: character.id,
+      modelUrl: character.modelUrl,
+      modelScale: character.modelScale,
+      modelYOffset: character.modelYOffset,
+      modelRotationY: character.modelRotationY,
+    }));
+  };
 
   const updateDesk = (deskId: number, updates: Partial<DeskConfig>) => {
     setDesks((prev) =>
@@ -102,33 +122,87 @@ function App() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(15,23,42,0.08)_100%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/20 to-transparent" />
         
-        {/* 3D R3F Canvas Container */}
-        <div className="w-full h-full z-0">
-          <OfficeScene 
-            emojiParticlesRef={emojiParticlesRef} 
-            theme={theme}
-            environmentType={environmentType}
-            desks={desks}
-            sipTrigger={sipTrigger}
-            triggerSip={triggerSip}
-            activeDesk={activeDesk}
-            setActiveDesk={setActiveDesk}
-            outfit={outfit}
-          />
-        </div>
+        {!hasEnteredOffice ? (
+          <section className="relative z-10 w-full max-w-5xl px-6 py-8">
+            <div className="mb-7 max-w-2xl">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Virtual Office</p>
+              <h1 className="mt-2 text-4xl md:text-6xl font-black text-slate-950 leading-none">Choose your sitter.</h1>
+              <p className="mt-4 text-sm md:text-base font-semibold text-slate-600 max-w-xl">
+                Pick a character before entering the workspace. You can still change it later from the avatar panel.
+              </p>
+            </div>
 
-        {/* Dashboard UI layer (Buttons, Visualizer, Onboarding, Instructions) */}
-        <Dashboard 
-          theme={theme}
-          setTheme={setTheme}
-          environmentType={environmentType}
-          setEnvironmentType={setEnvironmentType}
-          desks={desks}
-          updateDesk={updateDesk}
-          activeDesk={activeDesk}
-          outfit={outfit}
-          setOutfit={setOutfit}
-        />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {CHARACTER_OPTIONS.map((character) => {
+                const isSelected = outfit.characterId === character.id;
+                return (
+                  <button
+                    key={character.id}
+                    onClick={() => selectCharacter(character)}
+                    className={`group relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200 ${
+                      isSelected
+                        ? 'border-slate-950 bg-white shadow-2xl -translate-y-1'
+                        : 'border-white/70 bg-white/55 hover:bg-white/85 hover:-translate-y-0.5 shadow-lg'
+                    }`}
+                  >
+                    <div
+                      className="absolute inset-x-0 top-0 h-1.5"
+                      style={{ backgroundColor: character.accent }}
+                    />
+                    <div
+                      className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl text-3xl font-black text-white shadow-lg"
+                      style={{ backgroundColor: character.accent }}
+                    >
+                      {character.name.slice(0, 1)}
+                    </div>
+                    <h2 className="text-lg font-black text-slate-950">{character.name}</h2>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{character.subtitle}</p>
+                    <div className={`mt-5 h-1.5 rounded-full transition-all duration-200 ${
+                      isSelected ? 'bg-slate-950' : 'bg-slate-200 group-hover:bg-slate-300'
+                    }`} />
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setHasEnteredOffice(true)}
+              className="mt-7 rounded-2xl bg-slate-950 px-7 py-3 text-sm font-black text-white shadow-2xl transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              Enter Office
+            </button>
+          </section>
+        ) : (
+          <>
+            {/* 3D R3F Canvas Container */}
+            <div className="w-full h-full z-0">
+              <OfficeScene 
+                emojiParticlesRef={emojiParticlesRef} 
+                theme={theme}
+                environmentType={environmentType}
+                desks={desks}
+                sipTrigger={sipTrigger}
+                triggerSip={triggerSip}
+                activeDesk={activeDesk}
+                setActiveDesk={setActiveDesk}
+                outfit={outfit}
+              />
+            </div>
+
+            {/* Dashboard UI layer (Buttons, Visualizer, Onboarding, Instructions) */}
+            <Dashboard 
+              theme={theme}
+              setTheme={setTheme}
+              environmentType={environmentType}
+              setEnvironmentType={setEnvironmentType}
+              desks={desks}
+              updateDesk={updateDesk}
+              activeDesk={activeDesk}
+              outfit={outfit}
+              setOutfit={setOutfit}
+            />
+          </>
+        )}
         
       </main>
     </AudioAnalyzerProvider>

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volume2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Volume2, AlertTriangle, RotateCcw, Minus, Square } from 'lucide-react';
 
 interface MicrophoneConsoleProps {
   status: string;
@@ -22,6 +22,8 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
     if (val > 0.15) return 'bg-amber-500 shadow-amber-300';
     return 'bg-emerald-500 shadow-emerald-300';
   };
+
+  const [isMinimized, setIsMinimized] = useState(false);
 
   return (
     <div className="w-full pointer-events-auto select-none">
@@ -98,17 +100,29 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
             key="connected"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md flex flex-col space-y-3.5 border border-white"
+            className={`glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md flex flex-col space-y-3.5 border border-white transition-all duration-300 ${isMinimized ? 'h-14 overflow-hidden' : ''}`}
           >
+            {/* Visualizer Header */}
+            <div className="flex justify-between items-center w-full">
+              <div className="flex items-center space-x-1.5 text-indigo-700">
+                <Volume2 size={16} />
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">Live Input</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                {!isMinimized && <span className="text-[10px] font-bold text-slate-400">16-Band Frequency</span>}
+                <button 
+                  onClick={() => setIsMinimized(!isMinimized)}
+                  className="p-1 rounded-md transition-colors hover:bg-white/50 text-indigo-700 cursor-pointer"
+                >
+                  {isMinimized ? <Square size={14} /> : <Minus size={14} />}
+                </button>
+              </div>
+            </div>
+
+            {!isMinimized && (
+              <>
             {/* Visualizer Canvas */}
             <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <div className="flex items-center space-x-1.5 text-indigo-700">
-                  <Volume2 size={16} />
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider">Live Input</span>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400">16-Band Frequency</span>
-              </div>
               <canvas 
                 ref={visualizerCanvasRef} 
                 className="w-full h-14 bg-slate-900/5 rounded-xl border border-slate-200/50" 
@@ -138,6 +152,8 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1" /> Emoji Shout Trigger (&gt;45%)
               </span>
             </div>
+              </>
+            )}
           </motion.div>
         )}
 

@@ -29,7 +29,7 @@ interface OfficeSceneProps {
   outfit: AvatarOutfit;
 }
 
-export const OfficeScene: React.FC<OfficeSceneProps> = ({ 
+export const OfficeScene: React.FC<OfficeSceneProps> = ({
   emojiParticlesRef,
   theme,
   environmentType,
@@ -52,7 +52,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   const [playerChatMessage, setPlayerChatMessage] = useState<string | null>(null);
   const [npcChatMessages, setNpcChatMessages] = useState<Record<number, string | null>>({});
   const [chatInput, setChatInput] = useState<string>('');
-  
+
   const playerChatTimerRef = useRef<any>(null);
   const npcTimersRef = useRef<Record<number, any>>({});
 
@@ -120,7 +120,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
       };
 
       setChatHistory((prev) => [...prev, newMsg]);
-      
+
       // Update NPC speech bubble
       setNpcChatMessages((prev) => ({
         ...prev,
@@ -169,7 +169,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
       destDesk.position[2] + chairDirectionZ * seatDistance
     ]);
   };
-  
+
   const handleKeyboardStartMove = () => {
     if (isWalking && activeDesk === null) return;
     setQueuedTargetPosition(null);
@@ -251,9 +251,9 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
           )}
 
           {/* Room Geometry - Renders desks and colleague sitters */}
-          <IsometricRoom 
-            activeDesk={activeDesk} 
-            onSelectDesk={handleSelectDesk} 
+          <IsometricRoom
+            activeDesk={activeDesk}
+            onSelectDesk={handleSelectDesk}
             onSelectFloor={handleSelectFloor}
             desks={desks}
             theme={theme}
@@ -263,9 +263,9 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
           {/* Avatar Sitter - Walks from previous position to the new targetPosition */}
           <React.Suspense fallback={null}>
-            <Avatar 
-              emojiParticlesRef={emojiParticlesRef} 
-              activeDesk={activeDesk} 
+            <Avatar
+              emojiParticlesRef={emojiParticlesRef}
+              activeDesk={activeDesk}
               targetPosition={targetPosition}
               isWalking={isWalking}
               onArrive={() => {
@@ -304,7 +304,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         <OrbitControls
           enableDamping
           dampingFactor={0.05}
-          minZoom={80}
+          minZoom={60}
           maxZoom={250}
           minPolarAngle={Math.PI / 3.8}
           maxPolarAngle={Math.PI / 2.3}
@@ -315,7 +315,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
       </Canvas>
 
       {/* 2D Chat UI Overlay Component (positioned at top-left below title) */}
-      <ChatBox 
+      <ChatBox
         chatHistory={chatHistory}
         chatInput={chatInput}
         setChatInput={setChatInput}

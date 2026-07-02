@@ -35,18 +35,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   outfit,
   setOutfit
 }) => {
-  const { 
-    status, 
-    error, 
-    connectMicrophone, 
-    disconnectMicrophone, 
+  const {
+    status,
+    error,
+    connectMicrophone,
+    disconnectMicrophone,
     getVolume,
     getRawFrequencyData,
     isMuted,
-    toggleMute 
+    toggleMute
   } = useAudioAnalyzer();
 
-  const [showHelp, setShowHelp] = useState(true);
+  const [showHelp, setShowHelp] = useState(false);
   const [currentVolumeValue, setCurrentVolumeValue] = useState(0);
   const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -261,48 +261,58 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Audio Canvas visualizer loop
   useEffect(() => {
-    if (status !== 'connected' || !visualizerCanvasRef.current) return;
-    
-    const canvas = visualizerCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // High quality Retina canvas scaling
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
-    ctx.scale(dpr, dpr);
-
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
+    if (status !== 'connected') return;
 
     let visualizerFrameId: number;
+    let lastWidth = 0;
+    let lastHeight = 0;
 
     const draw = () => {
       visualizerFrameId = requestAnimationFrame(draw);
-      
+
+      // Canvas may not be mounted yet (AnimatePresence transition)
+      const canvas = visualizerCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Recalculate dimensions each frame so it works even if the
+      // element starts at 0×0 (e.g. during framer-motion entry).
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      if (cw === 0 || ch === 0) return;
+
+      if (cw !== lastWidth || ch !== lastHeight) {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = cw * dpr;
+        canvas.height = ch * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        lastWidth = cw;
+        lastHeight = ch;
+      }
+
       const freqs = getRawFrequencyData();
       if (!freqs) return;
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0, 0, cw, ch);
 
       // Render 16-band gradient visualizer bar charts
       const barCount = 16;
       const gap = 3.5;
-      const barWidth = (width - (barCount - 1) * gap) / barCount;
+      const barWidth = (cw - (barCount - 1) * gap) / barCount;
 
       for (let i = 0; i < barCount; i++) {
         // Map frequency bands
         const freqIndex = Math.floor((i / barCount) * freqs.length);
         const rawValue = freqs[freqIndex] || 0; // value from 0 to 255
-        
+
         // Normalize value with custom exponential scale to look responsive
         const percent = Math.pow(rawValue / 255, 1.25);
-        const barHeight = Math.max(3, percent * (height - 8));
+        const barHeight = Math.max(3, percent * (ch - 8));
 
         // Rounded vertical pill lines
         ctx.fillStyle = `rgba(99, 102, 241, ${0.15 + percent * 0.85})`;
         const x = i * (barWidth + gap);
-        const y = height - barHeight - 4;
+        const y = ch - barHeight - 4;
 
         ctx.beginPath();
         if (typeof (ctx as any).roundRect === 'function') {
@@ -367,7 +377,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const bufferSize = ctx.sampleRate * 2;
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
       b0 = 0.99886 * b0 + white * 0.0555179;
@@ -423,7 +433,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const playBell = () => {
       if (audioCtxRef.current?.state === 'suspended') return;
       const note = scale[Math.floor(Math.random() * scale.length)];
-      
+
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
       const filter = ctx.createBiquadFilter();
@@ -458,18 +468,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       try {
         ytPlayerRef.current.pauseVideo();
         setIsYtPlaying(false);
-      } catch (e) {}
+      } catch (e) { }
     }
     if (rainSourceRef.current) {
-      try { (rainSourceRef.current as any).stop(); } catch(e){}
+      try { (rainSourceRef.current as any).stop(); } catch (e) { }
       rainSourceRef.current = null;
     }
     if (windSourceRef.current) {
-      try { (windSourceRef.current as any).stop(); } catch(e){}
+      try { (windSourceRef.current as any).stop(); } catch (e) { }
       windSourceRef.current = null;
     }
     if (windLfoRef.current) {
-      try { windLfoRef.current.stop(); } catch(e){}
+      try { windLfoRef.current.stop(); } catch (e) { }
       windLfoRef.current = null;
     }
     if (chimeIntervalRef.current) {
@@ -505,9 +515,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 md:p-6">
-      
+
       {/* ---------------- TOP BAR ---------------- */}
-      <DashboardHeader 
+      <DashboardHeader
         theme={theme}
         setTheme={setTheme}
         environmentType={environmentType}
@@ -521,7 +531,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       />
 
       {/* ---------------- CENTER RIGHT / DYNAMIC CUSTOMIZER ---------------- */}
-      <CustomizerPanel 
+      <CustomizerPanel
         activeDesk={activeDesk}
         desks={desks}
         updateDesk={updateDesk}
@@ -531,11 +541,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* ---------------- BOTTOM BAR / DASHBOARD OVERLAY ---------------- */}
       <div className="w-full flex flex-col md:flex-row justify-between items-stretch md:items-end space-y-4 md:space-y-0 md:space-x-4 pointer-events-none">
-        
+
         {/* Left column: Focus Audio */}
         <div className="flex flex-col space-y-3.5 w-full max-w-sm">
           {/* Focus Soundscapes Panel */}
-          <FocusSoundscapes 
+          <FocusSoundscapes
             activeSoundscape={activeSoundscape}
             onToggleSoundscape={handleToggleSoundscape}
             ytUrl={ytUrl}
@@ -561,7 +571,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </AnimatePresence>
 
           {/* Live Audio Visualizer Corner Console */}
-          <MicrophoneConsole 
+          <MicrophoneConsole
             status={status}
             error={error}
             connectMicrophone={connectMicrophone}

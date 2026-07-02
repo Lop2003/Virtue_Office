@@ -1,5 +1,5 @@
-import React from 'react';
-import { Volume1, Volume2, Music, Play, Pause, SkipForward, Trash2, CloudRain, Wind, Bell } from 'lucide-react';
+import React, { useState } from 'react';
+import { Volume1, Volume2, Music, Play, Pause, SkipForward, Trash2, CloudRain, Wind, Bell, Minus, Square } from 'lucide-react';
 
 interface FocusSoundscapesProps {
   activeSoundscape: string | null;
@@ -34,13 +34,26 @@ export const FocusSoundscapes: React.FC<FocusSoundscapesProps> = ({
   onPlayTrack,
   onSkipTrack
 }) => {
+  const [isMinimized, setIsMinimized] = useState(false);
+
   return (
-    <div className="glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md pointer-events-auto border border-white select-none">
-      <div className="flex items-center space-x-2 text-indigo-700 mb-2.5">
-        <Volume2 size={18} className="animate-pulse" />
-        <h3 className="text-xs font-extrabold uppercase tracking-wider">Focus Ambient Soundscapes</h3>
+    <div className={`glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md pointer-events-auto border border-white select-none transition-all duration-300 flex flex-col ${isMinimized ? 'h-14 overflow-hidden' : ''}`}>
+      <div className="flex justify-between items-center w-full mb-2.5">
+        <div className="flex items-center space-x-2 text-indigo-700">
+          <Volume2 size={18} className="animate-pulse" />
+          <h3 className="text-xs font-extrabold uppercase tracking-wider">Focus Ambient Soundscapes</h3>
+        </div>
+        <button 
+          onClick={() => setIsMinimized(!isMinimized)}
+          className="p-1 rounded-md transition-colors hover:bg-white/50 text-indigo-700 cursor-pointer"
+        >
+          {isMinimized ? <Square size={14} /> : <Minus size={14} />}
+        </button>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      
+      {!isMinimized && (
+        <>
+          <div className="grid grid-cols-3 gap-2">
         {[
           { id: 'rain', label: 'Rain', icon: <CloudRain size={16} /> },
           { id: 'wind', label: 'Wind', icon: <Wind size={16} /> },
@@ -178,6 +191,8 @@ export const FocusSoundscapes: React.FC<FocusSoundscapesProps> = ({
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

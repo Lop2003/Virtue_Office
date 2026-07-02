@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useGLTF, useAnimations, Html } from '@react-three/drei';
 import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
 import type { EmojiParticlesHandle } from './EmojiParticles';
@@ -30,6 +31,95 @@ const ROBOT_URL = '/RobotExpressive.glb';
 
 // Pre-preload the model
 useGLTF.preload(ROBOT_URL);
+useGLTF.preload('/characters/CesiumMan.glb');
+useGLTF.preload('/characters/Soldier.glb');
+useGLTF.preload('/characters/Xbot.glb');
+
+interface DownloadedAvatarModelProps {
+  modelUrl: string;
+  scale: number;
+  yOffset: number;
+  rotationY: number;
+  isWalking: boolean;
+}
+
+const pickAction = (
+  actions: ReturnType<typeof useAnimations>['actions'],
+  patterns: RegExp[],
+) => {
+  for (const pattern of patterns) {
+    const match = Object.entries(actions).find(([name, action]) => action && pattern.test(name));
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
+};
+
+const DownloadedAvatarModel: React.FC<DownloadedAvatarModelProps> = ({
+  modelUrl,
+  scale,
+  yOffset,
+  rotationY,
+  isWalking,
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF(modelUrl);
+  const modelScene = React.useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions } = useAnimations(animations, groupRef);
+  const hasWalkActionRef = useRef(false);
+
+  useEffect(() => {
+    modelScene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [modelScene]);
+
+  useEffect(() => {
+    const modelActions = Object.values(actions).filter(Boolean);
+    const walkAction =
+      pickAction(actions, [/^walk$/i, /walk/i, /^run$/i, /run/i, /animation/i]) ||
+      modelActions[0];
+    const idleAction = pickAction(actions, [/^idle$/i, /idle/i, /stand/i]);
+    const nextAction = isWalking ? walkAction : idleAction;
+
+    hasWalkActionRef.current = Boolean(walkAction);
+    modelActions.forEach((action) => {
+      if (action !== nextAction) action?.fadeOut(0.16);
+    });
+
+    if (nextAction) {
+      nextAction.reset().fadeIn(0.18).play();
+      nextAction.timeScale = isWalking ? 1.15 : 1;
+    }
+
+    return () => {
+      modelActions.forEach((action) => action?.fadeOut(0.12));
+    };
+  }, [actions, isWalking]);
+
+  useFrame((state) => {
+    if (!groupRef.current || hasWalkActionRef.current) return;
+
+    if (isWalking) {
+      const t = state.clock.getElapsedTime();
+      groupRef.current.position.y = yOffset + Math.abs(Math.sin(t * 9.5)) * 0.08;
+      groupRef.current.rotation.z = Math.sin(t * 9.5) * 0.055;
+      groupRef.current.rotation.x = Math.sin(t * 9.5 + Math.PI / 2) * 0.035;
+    } else {
+      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, yOffset, 0.2);
+      groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, 0, 0.2);
+      groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, 0, 0.2);
+    }
+  });
+
+  return (
+    <group ref={groupRef} scale={scale} position={[0, yOffset, 0]} rotation={[0, rotationY, 0]}>
+      <primitive object={modelScene} />
+    </group>
+  );
+};
 
 export const Avatar: React.FC<AvatarProps> = ({ 
   emojiParticlesRef, 
@@ -139,7 +229,7 @@ export const Avatar: React.FC<AvatarProps> = ({
     };
   }, [onKeyboardStartMove, onSitAtDesk, onStandUp, activeDesk, isWalking, desks]);
 
-  // Load the GLTF model and animations
+  // Load the robot here; downloaded character GLBs own their animation root below.
   const { scene, animations } = useGLTF(ROBOT_URL);
 
   // Mesh/Group references
@@ -596,6 +686,10 @@ export const Avatar: React.FC<AvatarProps> = ({
   const isSeated = activeDesk !== null && !isWalking;
   const positionOffsetZ = isSeated ? 0.05 : 0;
   const positionOffsetY = isSeated ? (outfit.type === 'robot' ? 0.45 : 0.38) : 0;
+  const modelScale = outfit.modelScale ?? 1;
+  const modelYOffset = outfit.modelYOffset ?? 0;
+  const modelForwardFix = ['xbot', 'cesium-man'].includes(outfit.characterId) ? 0 : Math.PI;
+  const modelRotationY = (outfit.modelRotationY ?? 0) + modelForwardFix;
   return (
     <group ref={avatarGroupRef}>
       <group position={[0, positionOffsetY, positionOffsetZ]}>
@@ -689,6 +783,17 @@ export const Avatar: React.FC<AvatarProps> = ({
             humanLeftLegRef={humanLeftLegRef}
             humanRightLegRef={humanRightLegRef}
             humanHeadRef={humanHeadRef}
+          />
+        )}
+
+        {/* Render DOWNLOADED GLB MODEL */}
+        {outfit.type === 'model' && outfit.modelUrl && (
+          <DownloadedAvatarModel
+            modelUrl={outfit.modelUrl}
+            scale={modelScale}
+            yOffset={modelYOffset}
+            rotationY={modelRotationY}
+            isWalking={isWalking}
           />
         )}
 
