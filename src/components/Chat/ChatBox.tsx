@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Minus, Square } from 'lucide-react';
 
 export interface ChatMessage {
   id: string;
@@ -24,17 +25,18 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   theme
 }) => {
   const isNight = theme === 'night';
+  const [isMinimized, setIsMinimized] = useState(false);
 
   return (
     <div 
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className={`absolute top-[90px] left-4 z-50 w-72 h-64 backdrop-blur-md rounded-xl shadow-2xl flex flex-col overflow-hidden font-sans text-xs select-auto pointer-events-auto transition-all duration-500 border ${
+      className={`absolute top-[90px] left-4 z-50 w-72 backdrop-blur-md rounded-xl shadow-2xl flex flex-col overflow-hidden font-sans text-xs select-auto pointer-events-auto transition-all duration-300 border ${
         isNight 
           ? 'bg-slate-900/85 border-slate-700/80 text-white' 
           : 'bg-white/85 border-white/60 text-slate-800'
-      }`}
+      } ${isMinimized ? 'h-10' : 'h-64'}`}
     >
       {/* Chat Header */}
       <div className={`px-3 py-2 border-b flex justify-between items-center select-none ${
@@ -44,7 +46,15 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           ช่องแชทออฟฟิศ
         </span>
-        <span className={`text-[10px] font-mono ${isNight ? 'text-slate-400' : 'text-slate-500'}`}>Ufriend chat</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-mono ${isNight ? 'text-slate-400' : 'text-slate-500'}`}>Ufriend chat</span>
+          <button 
+            onClick={() => setIsMinimized(!isMinimized)}
+            className={`p-1 rounded-md transition-colors ${isNight ? 'hover:bg-slate-700 text-slate-300' : 'hover:bg-slate-200 text-slate-600'}`}
+          >
+            {isMinimized ? <Square size={12} /> : <Minus size={12} />}
+          </button>
+        </div>
       </div>
 
       {/* Chat History */}

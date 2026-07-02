@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Armchair, Shirt } from 'lucide-react';
+import { Sparkles, Armchair, Shirt, Minus, Square } from 'lucide-react';
 import type { DeskConfig } from '../OfficeScene';
 import type { AvatarOutfit } from '../../App';
 import { CHARACTER_OPTIONS, type CharacterOption } from '../../utils/avatarCharacters';
@@ -21,6 +21,8 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
   setOutfit
 }) => {
   const [activeTab, setActiveTab] = useState<'desk' | 'avatar'>('avatar');
+  const [isMinimized, setIsMinimized] = useState(false);
+  
   const selectCharacter = (character: CharacterOption) => {
     setOutfit((prev) => ({
       ...prev,
@@ -39,10 +41,26 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
         <motion.div
           initial={{ opacity: 0, x: 50, scale: 0.95 }}
           animate={{ opacity: 1, x: 0, scale: 1 }}
-          className="glass-panel p-5 rounded-2.5xl shadow-lg border border-white max-w-[285px] w-full flex flex-col space-y-4"
+          className={`glass-panel p-5 rounded-2.5xl shadow-lg border border-white max-w-[285px] w-full flex flex-col space-y-4 transition-all duration-300 ${isMinimized ? 'h-14 overflow-hidden' : ''}`}
         >
+          {/* Header with Minimize Toggle */}
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center space-x-2 text-indigo-700">
+              <Sparkles size={16} className="animate-pulse" />
+              <h3 className="text-xs font-extrabold uppercase tracking-wider">Customizer</h3>
+            </div>
+            <button 
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="p-1 rounded-md transition-colors hover:bg-white/50 text-indigo-700 cursor-pointer"
+            >
+              {isMinimized ? <Square size={14} /> : <Minus size={14} />}
+            </button>
+          </div>
+
+          {!isMinimized && (
+            <>
           {/* Tab Header (Only show tab switcher if seated) */}
-          {activeDesk !== null ? (
+          {activeDesk !== null && (
             <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
               <button
                 onClick={() => setActiveTab('desk')}
@@ -62,11 +80,6 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                 <Shirt size={12} />
                 <span>Avatar</span>
               </button>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-2 text-indigo-700">
-              <Sparkles size={16} className="animate-pulse" />
-              <h3 className="text-xs font-extrabold uppercase tracking-wider">Dress Up Sitter</h3>
             </div>
           )}
 
@@ -203,6 +216,8 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                 </>
               )}
             </div>
+          )}
+            </>
           )}
         </motion.div>
       </AnimatePresence>
