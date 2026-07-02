@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Armchair, Shirt } from 'lucide-react';
 import type { DeskConfig } from '../OfficeScene';
 import type { AvatarOutfit } from '../../App';
+import { CHARACTER_OPTIONS, type CharacterOption } from '../../utils/avatarCharacters';
 
 interface CustomizerPanelProps {
   activeDesk: number | null;
@@ -20,6 +21,17 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
   setOutfit
 }) => {
   const [activeTab, setActiveTab] = useState<'desk' | 'avatar'>('avatar');
+  const selectCharacter = (character: CharacterOption) => {
+    setOutfit((prev) => ({
+      ...prev,
+      type: character.type,
+      characterId: character.id,
+      modelUrl: character.modelUrl,
+      modelScale: character.modelScale,
+      modelYOffset: character.modelYOffset,
+      modelRotationY: character.modelRotationY,
+    }));
+  };
 
   return (
     <div className="absolute right-4 top-24 pointer-events-auto flex flex-col items-end space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar select-none">
@@ -101,19 +113,19 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
           {(activeDesk === null || activeTab === 'avatar') && (
             <div className="flex flex-col space-y-4">
               
-              {/* Class Class Selector */}
+              {/* Character Selector */}
               <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Character Class</span>
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Character</span>
                 <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
-                  {(['human', 'robot'] as const).map((t) => (
+                  {CHARACTER_OPTIONS.map((character) => (
                     <button
-                      key={t}
-                      onClick={() => setOutfit((prev) => ({ ...prev, type: t }))}
+                      key={character.id}
+                      onClick={() => selectCharacter(character)}
                       className={`py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
-                        outfit.type === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                        outfit.characterId === character.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      {t}
+                      {character.name}
                     </button>
                   ))}
                 </div>
