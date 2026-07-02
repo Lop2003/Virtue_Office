@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
 import type { EmojiParticlesHandle } from './EmojiParticles';
-import { findPath } from '../utils/pathfinding';
 import type { DeskConfig } from './OfficeScene';
+import type { AvatarOutfit } from '../App';
+import { findPath, checkCollision } from '../utils/pathfinding';
 
 interface AvatarProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
@@ -15,6 +16,8 @@ interface AvatarProps {
   onArrive: () => void;
   desks: DeskConfig[];
   sipTrigger: number;
+  outfit: AvatarOutfit;
+  onKeyboardStartMove?: () => void;
 }
 
 const ROBOT_URL = '/RobotExpressive.glb';
@@ -29,9 +32,38 @@ export const Avatar: React.FC<AvatarProps> = ({
   isWalking, 
   onArrive,
   desks,
-  sipTrigger
+  sipTrigger,
+  outfit,
+  onKeyboardStartMove
 }) => {
   const analyzer = useAudioAnalyzer();
+
+  // Keyboard tracking state
+  const keysPressed = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toUpperCase();
+      if (['W', 'A', 'S', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT'].includes(key)) {
+        keysPressed.current[key] = true;
+        if (onKeyboardStartMove) onKeyboardStartMove();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toUpperCase();
+      if (['W', 'A', 'S', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT'].includes(key)) {
+        keysPressed.current[key] = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [onKeyboardStartMove]);
 
   // Load the GLTF model and animations
   const { scene, animations } = useGLTF(ROBOT_URL);
@@ -39,6 +71,14 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Mesh/Group references
   const avatarGroupRef = useRef<THREE.Group>(null);
   
+  // Humanoid refs
+  const humanHeadRef = useRef<THREE.Group>(null);
+  const humanTorsoRef = useRef<THREE.Mesh>(null);
+  const humanLeftArmRef = useRef<THREE.Group>(null);
+  const humanRightArmRef = useRef<THREE.Group>(null);
+  const humanLeftLegRef = useRef<THREE.Group>(null);
+  const humanRightLegRef = useRef<THREE.Group>(null);
+
   // Setup animations using ref and clips
   const { actions } = useAnimations(animations, avatarGroupRef);
 
@@ -68,12 +108,13 @@ export const Avatar: React.FC<AvatarProps> = ({
     // Find path using collision-avoidance BFS pathfinder
     pathRef.current = findPath(currentPos.current, targetVec, activeDesk);
     waypointIndexRef.current = 0;
-  }, [targetPosition]);
+  }, [targetPosition, activeDesk]);
 
-  // Handle animation changes between Idle and Walking
+  // Handle animation changes between Idle and Walking for the ROBOT
   useEffect(() => {
-    let targetActionName = 'Idle';
+    if (outfit.type !== 'robot') return;
 
+    let targetActionName = 'Idle';
     if (isWalking) {
       targetActionName = 'Walking';
     }
@@ -88,13 +129,12 @@ export const Avatar: React.FC<AvatarProps> = ({
       nextAction.reset().fadeIn(0.2).play();
       activeActionName.current = targetActionName;
     }
-  }, [isWalking, actions]);
+  }, [isWalking, actions, outfit.type]);
 
-  // Handle coffee sipping reaction animation
+  // Handle coffee sipping reaction animation (Robot)
   useEffect(() => {
-    if (sipTrigger === 0) return;
+    if (outfit.type !== 'robot' || sipTrigger === 0) return;
     
-    // Play wave or thumbs up animation as reaction to coffee sipping
     const reactionAction = actions['Yes'] || actions['Wave'] || actions['ThumbsUp'];
     const idleAction = actions['Idle'];
 
@@ -110,17 +150,177 @@ export const Avatar: React.FC<AvatarProps> = ({
       };
       reactionAction.getMixer().addEventListener('finished', onFinish);
     }
-  }, [sipTrigger, actions]);
+  }, [sipTrigger, actions, outfit.type]);
 
+  // Handle coffee sipping reaction animation (Human)
+  useEffect(() => {
+    if (outfit.type !== 'human' || sipTrigger === 0) return;
+
+    // Procedural energy burst: make the human arms wave up and down quickly
+    let timer = 0;
+    const waveInterval = setInterval(() => {
+      timer += 0.1;
+      if (timer > 1.2) {
+        clearInterval(waveInterval);
+        // snap back
+        if (humanLeftArmRef.current) humanLeftArmRef.current.rotation.x = 0;
+        if (humanRightArmRef.current) humanRightArmRef.current.rotation.x = 0;
+        return;
+      }
+      if (humanLeftArmRef.current && humanRightArmRef.current) {
+        humanLeftArmRef.current.rotation.x = -Math.PI + Math.sin(timer * 15.0) * 0.5;
+        humanRightArmRef.current.rotation.x = -Math.PI - Math.sin(timer * 15.0) * 0.5;
+      }
+    }, 50);
+
+    return () => clearInterval(waveInterval);
+  }, [sipTrigger, outfit.type]);
+  // Programmatically attach accessories to the Robot's head bone
+  useEffect(() => {
+    if (outfit.type !== 'robot') return;
+
+    let headBone: any = null;
+    scene.traverse((child) => {
+      if (child.name.toLowerCase().includes('head') && child.type === 'Bone') {
+        headBone = child;
+      }
+    });
+
+    if (headBone) {
+      // Clear old accessories first
+      const toRemove: THREE.Object3D[] = [];
+      headBone.children.forEach((c: THREE.Object3D) => {
+        if (c.name.startsWith('accessory_')) {
+          toRemove.push(c);
+        }
+      });
+      toRemove.forEach((c) => {
+        headBone.remove(c);
+        // Traverse and dispose geometries/materials to prevent memory leaks in GPU
+        c.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh;
+            if (mesh.geometry) mesh.geometry.dispose();
+            if (mesh.material) {
+              if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((m) => m.dispose());
+              } else {
+                mesh.material.dispose();
+              }
+            }
+          }
+        });
+      });
+
+      // 1. Attach glasses
+      if (outfit.hasGlasses) {
+        const rimGeom = new THREE.TorusGeometry(0.38, 0.07, 4, 8);
+        const rimMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
+        
+        const glassesGroup = new THREE.Group();
+        glassesGroup.name = 'accessory_glasses';
+        glassesGroup.position.set(0, 0.55, 0.9); // positioned on face
+        glassesGroup.scale.set(0.7, 0.7, 0.7);
+
+        const leftRim = new THREE.Mesh(rimGeom, rimMat);
+        leftRim.position.x = -0.45;
+        glassesGroup.add(leftRim);
+
+        const rightRim = new THREE.Mesh(rimGeom, rimMat);
+        rightRim.position.x = 0.45;
+        glassesGroup.add(rightRim);
+
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.08), rimMat);
+        glassesGroup.add(bridge);
+
+        headBone.add(glassesGroup);
+      }
+
+      // 2. Attach headphones
+      if (outfit.hasHeadphones) {
+        const hpGroup = new THREE.Group();
+        hpGroup.name = 'accessory_headphones';
+        hpGroup.position.set(0, 0.65, 0); // top of head
+        hpGroup.scale.set(0.85, 0.85, 0.85);
+
+        // Band
+        const bandGeom = new THREE.TorusGeometry(1.1, 0.1, 8, 16, Math.PI);
+        const bandMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 });
+        const band = new THREE.Mesh(bandGeom, bandMat);
+        band.rotation.x = Math.PI / 2;
+        hpGroup.add(band);
+
+        // Cups
+        const cupGeom = new THREE.CylinderGeometry(0.45, 0.45, 0.25, 10);
+        const cupMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5 });
+        const leftCup = new THREE.Mesh(cupGeom, cupMat);
+        leftCup.position.set(-1.1, 0, 0);
+        leftCup.rotation.z = Math.PI / 2;
+        hpGroup.add(leftCup);
+
+        const rightCup = new THREE.Mesh(cupGeom, cupMat);
+        rightCup.position.set(1.1, 0, 0);
+        rightCup.rotation.z = -Math.PI / 2;
+        hpGroup.add(rightCup);
+
+        headBone.add(hpGroup);
+      }
+    }
+  }, [scene, outfit.hasGlasses, outfit.hasHeadphones, outfit.type]);
   useFrame((state, delta) => {
     const rawVolume = analyzer.getVolume();
     const volume = isNaN(rawVolume) || rawVolume === undefined ? 0 : rawVolume;
-
     const time = state.clock.getElapsedTime();
 
-    // --- 1. Movement Interpolation (Walking via Pathfinding) ---
-    if (isWalking && pathRef.current.length > 0) {
-      const walkSpeed = 3.2; // Constant walk speed (units per second)
+    // --- 1. Keyboard & Pathfinding Movement ---
+    const isW = keysPressed.current['W'] || keysPressed.current['ARROWUP'];
+    const isS = keysPressed.current['S'] || keysPressed.current['ARROWDOWN'];
+    const isA = keysPressed.current['A'] || keysPressed.current['ARROWLEFT'];
+    const isD = keysPressed.current['D'] || keysPressed.current['ARROWRIGHT'];
+    const hasKeyboardInput = isW || isS || isA || isD;
+
+    if (hasKeyboardInput) {
+      // Clear pathfinding path
+      if (pathRef.current.length > 0) {
+        pathRef.current = [];
+      }
+
+      // Calculate relative isometric movement vector
+      const moveDir = new THREE.Vector3(0, 0, 0);
+      if (isW) { moveDir.x -= 1; moveDir.z -= 1; }
+      if (isS) { moveDir.x += 1; moveDir.z += 1; }
+      if (isA) { moveDir.x -= 1; moveDir.z += 1; }
+      if (isD) { moveDir.x += 1; moveDir.z -= 1; }
+      moveDir.normalize();
+
+      const walkSpeed = 3.2;
+      const nextPos = currentPos.current.clone().addScaledVector(moveDir, delta * walkSpeed);
+
+      // Perform sliding collision check
+      if (!checkCollision(nextPos.x, nextPos.z, activeDesk)) {
+        currentPos.current.copy(nextPos);
+      } else {
+        // Try to slide along X axis
+        const nextPosX = currentPos.current.clone();
+        nextPosX.x = nextPos.x;
+        if (!checkCollision(nextPosX.x, nextPosX.z, activeDesk)) {
+          currentPos.current.copy(nextPosX);
+        } else {
+          // Try to slide along Z axis
+          const nextPosZ = currentPos.current.clone();
+          nextPosZ.z = nextPos.z;
+          if (!checkCollision(nextPosZ.x, nextPosZ.z, activeDesk)) {
+            currentPos.current.copy(nextPosZ);
+          }
+        }
+      }
+
+      // Rotate avatar smoothly to face movement direction
+      const heading = Math.atan2(moveDir.x, moveDir.z);
+      currentRotY.current = THREE.MathUtils.lerp(currentRotY.current, heading, 0.25);
+    } else if (isWalking && pathRef.current.length > 0) {
+      // Pathfinding movement (click-to-move)
+      const walkSpeed = 3.2; // Constant walk speed
       const wp = pathRef.current[waypointIndexRef.current];
       
       if (wp) {
@@ -129,7 +329,6 @@ export const Avatar: React.FC<AvatarProps> = ({
         const step = delta * walkSpeed;
         
         if (step >= dist) {
-          // Snap directly to this waypoint and proceed to the next
           currentPos.current.copy(wp);
           waypointIndexRef.current++;
           
@@ -137,11 +336,9 @@ export const Avatar: React.FC<AvatarProps> = ({
             onArrive();
           }
         } else {
-          // Move towards current waypoint
           diff.normalize().multiplyScalar(step);
           currentPos.current.add(diff);
           
-          // Face heading smoothly
           const heading = Math.atan2(diff.x, diff.z);
           currentRotY.current = THREE.MathUtils.lerp(currentRotY.current, heading, 0.25);
         }
@@ -149,7 +346,11 @@ export const Avatar: React.FC<AvatarProps> = ({
         onArrive();
       }
     } else {
-      // Seated/Standing: Smoothly face the desk if seated
+      // Idle state: if we were walking via keyboard but released, notify parent
+      if (isWalking && pathRef.current.length === 0) {
+        onArrive();
+      }
+
       if (activeDesk !== null) {
         const targetRotY = desks[activeDesk]?.rotationY || 0;
         currentRotY.current = THREE.MathUtils.lerp(currentRotY.current, targetRotY, 0.15);
@@ -163,8 +364,8 @@ export const Avatar: React.FC<AvatarProps> = ({
     }
 
     // --- 2. Speak/Emoji Reactions ---
-    // If user is speaking loudly, trigger a quick Wave/Dance/Jump animation to show expression
-    if (!isWalking && volume > 0.35 && time - lastSpawnTime.current > 1.5) {
+    // Speak reaction (Robot GLTF animation trigger)
+    if (outfit.type === 'robot' && !isWalking && volume > 0.35 && time - lastSpawnTime.current > 1.5) {
       const reactions = ['Wave', 'Yes', 'ThumbsUp', 'Punch'];
       const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
       const reactionAction = actions[randomReaction];
@@ -175,11 +376,9 @@ export const Avatar: React.FC<AvatarProps> = ({
         reactionAction.reset().fadeIn(0.15).setLoop(THREE.LoopOnce, 1).play();
         reactionAction.clampWhenFinished = true;
 
-        // Restore Idle after animation finishes
         const onFinish = () => {
           reactionAction.fadeOut(0.2);
           idleAction.reset().fadeIn(0.2).play();
-          // Unbind listener
           const mixer = reactionAction.getMixer();
           mixer.removeEventListener('finished', onFinish);
         };
@@ -189,12 +388,76 @@ export const Avatar: React.FC<AvatarProps> = ({
       }
     }
 
+    // Speak reaction (Humanoid procedural animations)
+    if (outfit.type === 'human') {
+      if (isWalking) {
+        const swingSpeed = 12.0;
+        const swingAngle = 0.55;
+        
+        if (humanLeftLegRef.current) {
+          humanLeftLegRef.current.rotation.x = Math.sin(time * swingSpeed) * swingAngle;
+        }
+        if (humanRightLegRef.current) {
+          humanRightLegRef.current.rotation.x = -Math.sin(time * swingSpeed) * swingAngle;
+        }
+        if (humanLeftArmRef.current) {
+          humanLeftArmRef.current.rotation.x = -Math.PI / 6 - Math.sin(time * swingSpeed) * (swingAngle * 0.7);
+        }
+        if (humanRightArmRef.current) {
+          humanRightArmRef.current.rotation.x = -Math.PI / 6 + Math.sin(time * swingSpeed) * (swingAngle * 0.7);
+        }
+      } else {
+        const isSeated = activeDesk !== null;
+        if (isSeated) {
+          // Typing arms + voice modulation
+          const typeSpeed = 8.0 + volume * 10.0;
+          const typingIntensity = 0.05 + volume * 0.15;
+          if (humanLeftArmRef.current && humanRightArmRef.current) {
+            humanLeftArmRef.current.rotation.x = -Math.PI / 3.2 + Math.sin(time * typeSpeed) * typingIntensity;
+            humanLeftArmRef.current.rotation.z = -0.15 + Math.cos(time * typeSpeed) * 0.02;
+            humanRightArmRef.current.rotation.x = -Math.PI / 3.2 + Math.cos(time * typeSpeed * 1.1) * typingIntensity;
+            humanRightArmRef.current.rotation.z = 0.15 + Math.sin(time * typeSpeed) * 0.02;
+          }
+        } else {
+          // Standing idle arms + volume wiggle
+          if (humanLeftArmRef.current && humanRightArmRef.current) {
+            humanLeftArmRef.current.rotation.x = 0;
+            humanLeftArmRef.current.rotation.z = -0.05 - volume * 0.2;
+            humanRightArmRef.current.rotation.x = 0;
+            humanRightArmRef.current.rotation.z = 0.05 + volume * 0.2;
+          }
+        }
+
+        // Head bobbing + speak node
+        if (humanHeadRef.current) {
+          const speakNod = volume * 0.25;
+          humanHeadRef.current.rotation.x = Math.sin(time * 1.5) * 0.03 + speakNod;
+          humanHeadRef.current.rotation.y = Math.cos(time * 0.8) * 0.04;
+        }
+
+        // Snap legs
+        if (humanLeftLegRef.current && humanRightLegRef.current) {
+          if (isSeated) {
+            humanLeftLegRef.current.position.set(-0.12, -0.12, 0.2);
+            humanLeftLegRef.current.rotation.x = -Math.PI / 2;
+            humanRightLegRef.current.position.set(0.12, -0.12, 0.2);
+            humanRightLegRef.current.rotation.x = -Math.PI / 2;
+          } else {
+            humanLeftLegRef.current.position.set(-0.12, -0.28, 0);
+            humanLeftLegRef.current.rotation.x = 0;
+            humanRightLegRef.current.position.set(0.12, -0.28, 0);
+            humanRightLegRef.current.rotation.x = 0;
+          }
+        }
+      }
+    }
+
     // --- 3. Emoji Particle Spawner ---
     if (volume > 0.45 && time - lastSpawnTime.current > 0.35) {
       if (emojiParticlesRef.current && avatarGroupRef.current) {
         const spawnPos: [number, number, number] = [
           currentPos.current.x + (Math.random() - 0.5) * 0.2,
-          currentPos.current.y + 0.9, // Float above head
+          currentPos.current.y + 0.9,
           currentPos.current.z + (Math.random() - 0.5) * 0.2
         ];
         
@@ -214,20 +477,179 @@ export const Avatar: React.FC<AvatarProps> = ({
     });
   }, [scene]);
 
-  // Adjust height when seated: since the robot is standing, we place it slightly lower or adjust its position so it stands right at the desk keyboard
+  // Adjust height offsets
   const isSeated = activeDesk !== null && !isWalking;
-  
-  // If seated, we slightly shift Z and Y so the robot stands typing close to the desk
   const positionOffsetZ = isSeated ? 0.05 : 0;
-  const positionOffsetY = isSeated ? -0.15 : 0; // Slightly lower so they type naturally
+  // Robot stands on the chair (0.45), Human sits on it (0.3 so legs rest at ~0.49)
+  const positionOffsetY = isSeated ? (outfit.type === 'robot' ? 0.45 : 0.3) : 0;
 
   return (
     <group ref={avatarGroupRef}>
-      <group 
-        position={[0, positionOffsetY, positionOffsetZ]} 
-        scale={0.28} // Scale down the robot to fit nicely in the room
-      >
-        <primitive object={scene} />
+      <group position={[0, positionOffsetY, positionOffsetZ]}>
+        
+        {/* Render ROBOT CLASS */}
+        {outfit.type === 'robot' && (
+          <group scale={0.28}>
+            <primitive object={scene} />
+          </group>
+        )}
+
+        {/* Render HUMAN CLASS */}
+        {outfit.type === 'human' && (
+          <group scale={0.88}>
+            {/* Torso */}
+            <mesh ref={humanTorsoRef} position={[0, 0.45, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.22, 0.18, 0.5, 8]} />
+              <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+            </mesh>
+
+            {/* Neck */}
+            <mesh position={[0, 0.74, 0]} castShadow>
+              <cylinderGeometry args={[0.065, 0.065, 0.1, 8]} />
+              <meshStandardMaterial color={outfit.skinTone} roughness={0.6} />
+            </mesh>
+
+            {/* Left Arm */}
+            <group ref={humanLeftArmRef} position={[-0.26, 0.62, 0.01]} rotation={isSeated ? [-Math.PI / 3.2, 0, -0.15] : [0, 0, -0.05]}>
+              <mesh castShadow>
+                <cylinderGeometry args={[0.055, 0.045, 0.38, 8]} />
+                <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+              </mesh>
+              <mesh position={[0, -0.2, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color={outfit.skinTone} roughness={0.6} />
+              </mesh>
+            </group>
+
+            {/* Right Arm */}
+            <group ref={humanRightArmRef} position={[0.26, 0.62, 0.01]} rotation={isSeated ? [-Math.PI / 3.2, 0, 0.15] : [0, 0, 0.05]}>
+              <mesh castShadow>
+                <cylinderGeometry args={[0.055, 0.045, 0.38, 8]} />
+                <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+              </mesh>
+              <mesh position={[0, -0.2, 0]} castShadow>
+                <sphereGeometry args={[0.05, 8, 8]} />
+                <meshStandardMaterial color={outfit.skinTone} roughness={0.6} />
+              </mesh>
+            </group>
+
+            {/* Left Leg */}
+            <group ref={humanLeftLegRef} position={isSeated ? [-0.1, 0.22, 0.18] : [-0.1, 0.15, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+              <mesh castShadow receiveShadow>
+                <cylinderGeometry args={[0.065, 0.055, 0.44, 8]} />
+                <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+              </mesh>
+            </group>
+
+            {/* Right Leg */}
+            <group ref={humanRightLegRef} position={isSeated ? [0.1, 0.22, 0.18] : [0.1, 0.15, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+              <mesh castShadow receiveShadow>
+                <cylinderGeometry args={[0.065, 0.055, 0.44, 8]} />
+                <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+              </mesh>
+            </group>
+
+            {/* Head Group */}
+            <group ref={humanHeadRef} position={[0, 1.02, 0]}>
+              {/* Face */}
+              <mesh castShadow>
+                <boxGeometry args={[0.44, 0.44, 0.44]} />
+                <meshStandardMaterial color={outfit.skinTone} roughness={0.5} />
+              </mesh>
+
+              {/* Eyes */}
+              <mesh position={[-0.12, 0.03, 0.225]}>
+                <boxGeometry args={[0.04, 0.05, 0.02]} />
+                <meshBasicMaterial color="#111827" />
+              </mesh>
+              <mesh position={[0.12, 0.03, 0.225]}>
+                <boxGeometry args={[0.04, 0.05, 0.02]} />
+                <meshBasicMaterial color="#111827" />
+              </mesh>
+
+              {/* Hair Crop */}
+              {outfit.hairStyle === 'short' && (
+                <>
+                  <mesh position={[0, 0.18, 0.04]} castShadow>
+                    <boxGeometry args={[0.46, 0.12, 0.4]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                  <mesh position={[0, -0.05, -0.09]} castShadow>
+                    <boxGeometry args={[0.46, 0.46, 0.28]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                </>
+              )}
+
+              {/* Hair Long */}
+              {outfit.hairStyle === 'long' && (
+                <>
+                  <mesh position={[0, 0.18, 0.04]} castShadow>
+                    <boxGeometry args={[0.46, 0.12, 0.4]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                  <mesh position={[0, -0.15, -0.09]} castShadow>
+                    <boxGeometry args={[0.46, 0.65, 0.28]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                  <mesh position={[-0.21, -0.2, 0.1]} castShadow>
+                    <boxGeometry args={[0.05, 0.4, 0.1]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                  <mesh position={[0.21, -0.2, 0.1]} castShadow>
+                    <boxGeometry args={[0.05, 0.4, 0.1]} />
+                    <meshStandardMaterial color={outfit.hairColor} roughness={0.8} />
+                  </mesh>
+                </>
+              )}
+
+              {/* Hair Cap */}
+              {outfit.hairStyle === 'cap' && (
+                <mesh position={[0, 0.21, 0]} castShadow>
+                  <boxGeometry args={[0.48, 0.15, 0.48]} />
+                  <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
+                </mesh>
+              )}
+
+              {/* Glasses */}
+              {outfit.hasGlasses && (
+                <group position={[0, 0.03, 0.23]}>
+                  <mesh position={[-0.12, 0, 0]}>
+                    <torusGeometry args={[0.07, 0.012, 4, 8]} />
+                    <meshBasicMaterial color="#111827" />
+                  </mesh>
+                  <mesh position={[0.12, 0, 0]}>
+                    <torusGeometry args={[0.07, 0.012, 4, 8]} />
+                    <meshBasicMaterial color="#111827" />
+                  </mesh>
+                  <mesh position={[0, 0, 0]}>
+                    <boxGeometry args={[0.08, 0.015, 0.01]} />
+                    <meshBasicMaterial color="#111827" />
+                  </mesh>
+                </group>
+              )}
+
+              {/* Headphones */}
+              {outfit.hasHeadphones && (
+                <group position={[0, 0.03, 0]}>
+                  <mesh castShadow>
+                    <torusGeometry args={[0.23, 0.025, 8, 16, Math.PI]} />
+                    <meshStandardMaterial color="#3b82f6" roughness={0.4} />
+                  </mesh>
+                  <mesh position={[-0.23, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+                    <cylinderGeometry args={[0.09, 0.09, 0.05, 10]} />
+                    <meshStandardMaterial color="#111827" roughness={0.5} />
+                  </mesh>
+                  <mesh position={[0.23, 0, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
+                    <cylinderGeometry args={[0.09, 0.09, 0.05, 10]} />
+                    <meshStandardMaterial color="#111827" roughness={0.5} />
+                  </mesh>
+                </group>
+              )}
+            </group>
+          </group>
+        )}
+
       </group>
     </group>
   );

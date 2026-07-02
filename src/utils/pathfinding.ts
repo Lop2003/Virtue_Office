@@ -65,22 +65,67 @@ const isWalkable = (
     }
 
     // Chair collision check (only block if it contains a colleague)
-    if (desk.id !== activeDesk) {
+    if (desk.id !== activeDesk && desk.hasColleague !== false) {
       const rotY = desk.rotationY || 0;
-      const offsetZ = -0.4 * Math.cos(rotY);
-      const offsetX = -0.4 * Math.sin(rotY);
+      const offsetZ = -0.65 * Math.cos(rotY);
+      const offsetX = -0.65 * Math.sin(rotY);
       const cx = dx + offsetX;
       const cz = dz + offsetZ;
 
       // Chair diameter ~0.6 units. Adding padding ~0.15. Total radius ~0.45.
       const distSq = (cellPos.x - cx) * (cellPos.x - cx) + (cellPos.z - cz) * (cellPos.z - cz);
-      if (distSq < 0.42 * 0.42) {
+      if (distSq < 0.45 * 0.45) {
         return false; // Collides with sitting colleague
       }
     }
   }
 
   return true;
+};
+
+// Check if a world position is in collision with desks or walls (for WASD)
+export const checkCollision = (
+  x: number,
+  z: number,
+  activeDesk: number | null
+): boolean => {
+  // Padding limits from walls
+  if (Math.abs(x) > 7.1 || Math.abs(z) > 3.9) return true; // Collides with wall
+
+  // Bounding box collision check for each desk
+  for (const desk of DESK_CONFIGS) {
+    const dx = desk.position[0];
+    const dz = desk.position[2];
+
+    // Desk size is [1.8, 0.06, 1.0]. Adding safety padding (0.12 units) for avatar width.
+    const padX = 0.9 + 0.12;
+    const padZ = 0.5 + 0.12;
+
+    if (
+      x >= dx - padX && 
+      x <= dx + padX && 
+      z >= dz - padZ && 
+      z <= dz + padZ
+    ) {
+      return true; // Collides with desk
+    }
+
+    // Chair collision check (only block if it contains a colleague)
+    if (desk.id !== activeDesk && desk.hasColleague !== false) {
+      const rotY = desk.rotationY || 0;
+      const offsetZ = -0.65 * Math.cos(rotY);
+      const offsetX = -0.65 * Math.sin(rotY);
+      const cx = dx + offsetX;
+      const cz = dz + offsetZ;
+
+      const distSq = (x - cx) * (x - cx) + (z - cz) * (z - cz);
+      if (distSq < 0.45 * 0.45) {
+        return true; // Collides with sitting colleague
+      }
+    }
+  }
+
+  return false; // No collision
 };
 
 // BFS Shortest Path Finder

@@ -6,6 +6,7 @@ import { IsometricRoom } from './IsometricRoom';
 import { Avatar } from './Avatar';
 import { EmojiParticles } from './EmojiParticles';
 import type { EmojiParticlesHandle } from './EmojiParticles';
+import type { AvatarOutfit } from '../App';
 
 export interface DeskConfig {
   id: number;
@@ -22,6 +23,7 @@ export interface DeskConfig {
   laptopColor?: string;
   glowColor?: string;
   lightIntensity?: number;
+  hasColleague?: boolean;
 }
 
 // Programmatically generate 20 desks (4 rows of 5 desks facing each other)
@@ -44,7 +46,8 @@ const generateDesks = (): DeskConfig[] => {
       hasMug: col % 2 === 1,
       chairColor: chairColors[id % chairColors.length],
       lampColor: '#f43f5e',
-      lightIntensity: 1.5
+      lightIntensity: 1.5,
+      hasColleague: id % 3 !== 0 // Remove some colleagues
     });
     id++;
   });
@@ -61,7 +64,8 @@ const generateDesks = (): DeskConfig[] => {
       hasMug: col % 2 === 0,
       chairColor: chairColors[id % chairColors.length],
       lampColor: '#06b6d4',
-      lightIntensity: 1.5
+      lightIntensity: 1.5,
+      hasColleague: id % 2 !== 0 // Remove some colleagues
     });
     id++;
   });
@@ -79,7 +83,8 @@ const generateDesks = (): DeskConfig[] => {
       hasMug: col % 2 === 1,
       chairColor: chairColors[id % chairColors.length],
       lampColor: '#f43f5e',
-      lightIntensity: 1.5
+      lightIntensity: 1.5,
+      hasColleague: id % 4 !== 0 // Remove some colleagues
     });
     id++;
   });
@@ -96,7 +101,8 @@ const generateDesks = (): DeskConfig[] => {
       hasMug: col % 2 === 0,
       chairColor: chairColors[id % chairColors.length],
       lampColor: '#06b6d4',
-      lightIntensity: 1.5
+      lightIntensity: 1.5,
+      hasColleague: id % 3 !== 1 // Remove some colleagues
     });
     id++;
   });
@@ -114,6 +120,7 @@ interface OfficeSceneProps {
   triggerSip: (deskPosition: [number, number, number]) => void;
   activeDesk: number | null;
   setActiveDesk: (id: number | null) => void;
+  outfit: AvatarOutfit;
 }
 
 export const OfficeScene: React.FC<OfficeSceneProps> = ({ 
@@ -123,7 +130,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   sipTrigger,
   triggerSip,
   activeDesk,
-  setActiveDesk
+  setActiveDesk,
+  outfit
 }) => {
   const [isWalking, setIsWalking] = useState<boolean>(false);
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([0, 0, 0]); // Standing on rug
@@ -135,14 +143,20 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
     const destDesk = desks[id];
     const rotY = destDesk.rotationY || 0;
-    const offsetZ = -0.4 * Math.cos(rotY);
-    const offsetX = -0.4 * Math.sin(rotY);
+    const offsetZ = -0.65 * Math.cos(rotY);
+    const offsetX = -0.65 * Math.sin(rotY);
 
     setTargetPosition([
       destDesk.position[0] + offsetX,
       0,
       destDesk.position[2] + offsetZ
     ]);
+  };
+  
+  const handleKeyboardStartMove = () => {
+    if (isWalking && activeDesk === null) return;
+    setIsWalking(true);
+    setActiveDesk(null);
   };
 
   const handleSelectFloor = (point: THREE.Vector3) => {
@@ -171,15 +185,15 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
       case 'night':
         return {
           ambientColor: '#1e1b4b',
-          ambientIntensity: 0.25,
+          ambientIntensity: 0.6,
           hemiColor: '#3b82f6',
           hemiGround: '#0f172a',
-          hemiIntensity: 0.3,
+          hemiIntensity: 0.65,
           dirColor: '#818cf8',
-          dirIntensity: 0.5,
+          dirIntensity: 1.1,
           dirPos: [6, 9, 5] as [number, number, number],
           fillColor: '#c084fc',
-          fillIntensity: 0.3,
+          fillIntensity: 0.7,
         };
       case 'day':
       default:
@@ -203,8 +217,15 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   return (
     <div className="w-full h-full relative">
       <Canvas
-        shadows
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        shadows="soft"
+        dpr={[1, 2]}
+        gl={{
+          antialias: true,
+          powerPreference: "high-performance",
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
         className="w-full h-full"
       >
         {/* --- 1. Isometric Camera Setup --- */}
@@ -230,14 +251,14 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
           intensity={lights.dirIntensity}
           color={lights.dirColor}
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
-          shadow-camera-left={-3}
-          shadow-camera-right={3}
-          shadow-camera-top={3}
-          shadow-camera-bottom={-3}
+          shadow-mapSize-width={512}
+          shadow-mapSize-height={512}
+          shadow-camera-left={-4}
+          shadow-camera-right={4}
+          shadow-camera-top={4}
+          shadow-camera-bottom={-4}
           shadow-camera-near={0.1}
-          shadow-camera-far={25}
+          shadow-camera-far={30}
           shadow-bias={-0.0005}
         />
 
@@ -269,6 +290,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
               onArrive={() => setIsWalking(false)}
               desks={desks}
               sipTrigger={sipTrigger}
+              outfit={outfit}
+              onKeyboardStartMove={handleKeyboardStartMove}
             />
           </React.Suspense>
 

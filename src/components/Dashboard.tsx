@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { DeskConfig } from './OfficeScene';
+import type { AvatarOutfit } from '../App';
 
 interface DashboardProps {
   theme: 'day' | 'sunset' | 'night';
@@ -19,6 +20,8 @@ interface DashboardProps {
   desks: DeskConfig[];
   updateDesk: (deskId: number, updates: Partial<DeskConfig>) => void;
   activeDesk: number | null;
+  outfit: AvatarOutfit;
+  setOutfit: React.Dispatch<React.SetStateAction<AvatarOutfit>>;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -26,7 +29,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setTheme,
   desks,
   updateDesk,
-  activeDesk
+  activeDesk,
+  outfit,
+  setOutfit
 }) => {
   const { 
     status, 
@@ -52,6 +57,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const windLfoRef = useRef<OscillatorNode | null>(null);
   const chimeIntervalRef = useRef<any>(null);
 
+  // Tab controller for customization panel on the right
+  const [activeTab, setActiveTab] = useState<'desk' | 'avatar'>('avatar');
+
   // Poll current volume numerical level for UI meter
   useEffect(() => {
     if (status !== 'connected') {
@@ -76,21 +84,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Cache dimensions to avoid layout thrashing (forced reflow) in requestAnimationFrame loop
+    let width = canvas.clientWidth;
+    let height = canvas.clientHeight;
+
+    const resizeCanvas = () => {
+      const dpr = window.devicePixelRatio || 1;
+      width = canvas.clientWidth;
+      height = canvas.clientHeight;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
     const drawVisualizer = () => {
       const data = getRawFrequencyData();
       if (!data) {
         animationFrameRef.current = requestAnimationFrame(drawVisualizer);
         return;
-      }
-
-      // Handle high DPI screens
-      const dpr = window.devicePixelRatio || 1;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        ctx.scale(dpr, dpr);
       }
 
       ctx.clearRect(0, 0, width, height);
@@ -144,6 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     drawVisualizer();
 
     return () => {
+      window.removeEventListener('resize', resizeCanvas);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -465,76 +480,237 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* ---------------- CENTER RIGHT / DYNAMIC CUSTOMIZER ---------------- */}
-      <div className="absolute right-4 top-24 pointer-events-auto flex flex-col items-end space-y-4">
+      <div className="absolute right-4 top-24 pointer-events-auto flex flex-col items-end space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar">
         <AnimatePresence>
-          {activeDesk !== null && (
-            <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 50, scale: 0.95 }}
-              className="glass-panel p-5 rounded-2.5xl shadow-lg border border-white max-w-[285px] w-full flex flex-col space-y-4"
-            >
+          <motion.div
+            initial={{ opacity: 0, x: 50, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            className="glass-panel p-5 rounded-2.5xl shadow-lg border border-white max-w-[285px] w-full flex flex-col space-y-4"
+          >
+            {/* Tab Header (Only show tab switcher if seated) */}
+            {activeDesk !== null ? (
+              <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
+                <button
+                  onClick={() => setActiveTab('desk')}
+                  className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                    activeTab === 'desk' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  🪑 Desk
+                </button>
+                <button
+                  onClick={() => setActiveTab('avatar')}
+                  className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                    activeTab === 'avatar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  👕 Avatar
+                </button>
+              </div>
+            ) : (
               <div className="flex items-center space-x-2 text-indigo-700">
                 <Sparkles size={16} className="animate-pulse" />
-                <h3 className="text-xs font-extrabold uppercase tracking-wider">Customize Desk #{activeDesk + 1}</h3>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider">Dress Up Sitter</h3>
               </div>
+            )}
 
-              {/* Chair Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Chair Cushion</span>
-                <div className="flex space-x-1.5">
-                  {['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { chairColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.chairColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                    />
-                  ))}
+            {/* TAB CONTENT: DESK */}
+            {activeDesk !== null && activeTab === 'desk' && (
+              <div className="flex flex-col space-y-4">
+                {/* Chair Color Picker */}
+                <div className="flex flex-col space-y-1.5">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Chair Cushion</span>
+                  <div className="flex space-x-1.5">
+                    {['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateDesk(activeDesk, { chairColor: c })}
+                        style={{ backgroundColor: c }}
+                        className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                          desks[activeDesk]?.chairColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lamp Color Picker */}
+                <div className="flex flex-col space-y-1.5">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Desk Lamp Glow</span>
+                  <div className="flex space-x-1.5">
+                    {['#f43f5e', '#06b6d4', '#eab308', '#22c55e', '#a855f7'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateDesk(activeDesk, { lampColor: c })}
+                        style={{ backgroundColor: c }}
+                        className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                          desks[activeDesk]?.lampColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mug Color Picker */}
+                <div className="flex flex-col space-y-1.5">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Beverage Mug</span>
+                  <div className="flex space-x-1.5">
+                    {['#ef4444', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'].map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateDesk(activeDesk, { mugColor: c })}
+                        style={{ backgroundColor: c }}
+                        className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                          desks[activeDesk]?.mugColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-[9px] text-slate-400 font-bold text-center leading-normal">
+                  💡 Tip: Click your coffee mug to take a sip!
                 </div>
               </div>
+            )}
 
-              {/* Lamp Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Desk Lamp Glow</span>
-                <div className="flex space-x-1.5">
-                  {['#f43f5e', '#06b6d4', '#eab308', '#22c55e', '#a855f7'].map((c) => (
+            {/* TAB CONTENT: AVATAR DRESS UP */}
+            {(activeDesk === null || activeTab === 'avatar') && (
+              <div className="flex flex-col space-y-4">
+                {/* Character Class (Robot vs Human) */}
+                <div className="flex flex-col space-y-1.5">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Sitter Class</span>
+                  <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
                     <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { lampColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.lampColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                      onClick={() => setOutfit((prev) => ({ ...prev, type: 'robot' }))}
+                      className={`py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                        outfit.type === 'robot' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                       }`}
-                    />
-                  ))}
+                    >
+                      🤖 Robot
+                    </button>
+                    <button
+                      onClick={() => setOutfit((prev) => ({ ...prev, type: 'human' }))}
+                      className={`py-1 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                        outfit.type === 'human' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      🧑 Human
+                    </button>
+                  </div>
+                </div>
+
+                {/* Human Customization Options */}
+                {outfit.type === 'human' && (
+                  <>
+                    {/* Hair Style */}
+                    <div className="flex flex-col space-y-1.5">
+                      <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Hair Style</span>
+                      <div className="grid grid-cols-4 gap-1 p-0.5 bg-slate-900/5 rounded-xl">
+                        {(['none', 'short', 'long', 'cap'] as const).map((style) => (
+                          <button
+                            key={style}
+                            onClick={() => setOutfit((prev) => ({ ...prev, hairStyle: style }))}
+                            className={`py-1 text-[9px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                              outfit.hairStyle === style ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            {style === 'none' ? 'Bald' : style === 'short' ? 'Crop' : style === 'long' ? 'Locks' : 'Cap'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Hair Color */}
+                    {outfit.hairStyle !== 'none' && outfit.hairStyle !== 'cap' && (
+                      <div className="flex flex-col space-y-1.5">
+                        <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Hair Color</span>
+                        <div className="flex space-x-1.5">
+                          {['#111827', '#ca8a04', '#3b2314', '#ec4899', '#84cc16'].map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => setOutfit((prev) => ({ ...prev, hairColor: c }))}
+                              style={{ backgroundColor: c }}
+                              className={`w-6.5 h-6.5 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                                outfit.hairColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Skin Tone */}
+                    <div className="flex flex-col space-y-1.5">
+                      <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Skin Tone</span>
+                      <div className="flex space-x-1.5">
+                        {['#fed7aa', '#fbcfe8', '#d97706', '#ffedd5', '#ca8a04'].map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setOutfit((prev) => ({ ...prev, skinTone: c }))}
+                            style={{ backgroundColor: c }}
+                            className={`w-6.5 h-6.5 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                              outfit.skinTone === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Clothes Color */}
+                    <div className="flex flex-col space-y-1.5">
+                      <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Clothes Color</span>
+                      <div className="flex space-x-1.5">
+                        {['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'].map((c) => (
+                          <button
+                            key={c}
+                            onClick={() => setOutfit((prev) => ({ ...prev, clothingColor: c }))}
+                            style={{ backgroundColor: c }}
+                            className={`w-6.5 h-6.5 rounded-full border-2 transition-all duration-200 cursor-pointer ${
+                              outfit.clothingColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Accessories (Common to both) */}
+                <div className="flex flex-col space-y-2">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Accessories</span>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">Classic Glasses</span>
+                    <button
+                      onClick={() => setOutfit((prev) => ({ ...prev, hasGlasses: !prev.hasGlasses }))}
+                      className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
+                        outfit.hasGlasses
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
+                          : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
+                      }`}
+                    >
+                      {outfit.hasGlasses ? 'Equipped' : 'Equip'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-700">DJ Headphones</span>
+                    <button
+                      onClick={() => setOutfit((prev) => ({ ...prev, hasHeadphones: !prev.hasHeadphones }))}
+                      className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
+                        outfit.hasHeadphones
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
+                          : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
+                      }`}
+                    >
+                      {outfit.hasHeadphones ? 'Equipped' : 'Equip'}
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              {/* Mug Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Beverage Mug</span>
-                <div className="flex space-x-1.5">
-                  {['#ef4444', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { mugColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.mugColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-[9px] text-slate-400 font-bold text-center leading-normal">
-                💡 Tip: Click your coffee mug to take a sip!
-              </div>
-            </motion.div>
-          )}
+            )}
+          </motion.div>
         </AnimatePresence>
       </div>
 

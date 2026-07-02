@@ -5,6 +5,17 @@ import { Dashboard } from './components/Dashboard';
 import type { EmojiParticlesHandle } from './components/EmojiParticles';
 import type { DeskConfig } from './components/OfficeScene';
 
+export interface AvatarOutfit {
+  type: 'robot' | 'human';
+  hairStyle: 'short' | 'long' | 'cap' | 'none';
+  hairColor: string;
+  clothingStyle: 'shirt' | 'hoodie' | 'suit';
+  clothingColor: string;
+  skinTone: string;
+  hasGlasses: boolean;
+  hasHeadphones: boolean;
+}
+
 function App() {
   // Reference to trigger 3D emoji spawning from volume events
   const emojiParticlesRef = useRef<EmojiParticlesHandle>(null);
@@ -14,6 +25,16 @@ function App() {
   const [desks, setDesks] = useState<DeskConfig[]>(DESK_CONFIGS);
   const [sipTrigger, setSipTrigger] = useState<number>(0);
   const [activeDesk, setActiveDesk] = useState<number | null>(null);
+  const [outfit, setOutfit] = useState<AvatarOutfit>({
+    type: 'robot',
+    hairStyle: 'short',
+    hairColor: '#ca8a04',
+    clothingStyle: 'hoodie',
+    clothingColor: '#3b82f6',
+    skinTone: '#fed7aa',
+    hasGlasses: false,
+    hasHeadphones: false
+  });
 
   const updateDesk = (deskId: number, updates: Partial<DeskConfig>) => {
     setDesks((prev) =>
@@ -105,6 +126,7 @@ function App() {
             triggerSip={triggerSip}
             activeDesk={activeDesk}
             setActiveDesk={setActiveDesk}
+            outfit={outfit}
           />
         </div>
 
@@ -115,6 +137,8 @@ function App() {
           desks={desks}
           updateDesk={updateDesk}
           activeDesk={activeDesk}
+          outfit={outfit}
+          setOutfit={setOutfit}
         />
         
       </main>
