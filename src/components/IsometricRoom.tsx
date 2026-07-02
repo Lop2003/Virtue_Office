@@ -13,6 +13,59 @@ const SKIRTING_BACK_GEO = new THREE.BoxGeometry(14.8, 0.16, 0.04);
 const WALL_LEFT_GEO = new THREE.BoxGeometry(0.04, 2.5, 8.4);
 const WALL_BACK_GEO = new THREE.BoxGeometry(14.8, 2.5, 0.04);
 
+const HangingLamp: React.FC<{ position: [number, number, number]; theme: string }> = ({ position, theme }) => {
+  const isNight = theme === 'night';
+  const isSunset = theme === 'sunset';
+
+  let bulbColor = '#475569';
+  if (isNight) bulbColor = '#fef08a';
+  else if (isSunset) bulbColor = '#fdba74';
+
+  return (
+    <group position={position}>
+      {/* Cord */}
+      <mesh position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.01, 0.01, 0.6, 4]} />
+        <meshStandardMaterial color="#0f172a" />
+      </mesh>
+      {/* Shade */}
+      <mesh position={[0, 0.02, 0]}>
+        <coneGeometry args={[0.2, 0.12, 8]} />
+        <meshStandardMaterial color="#1e293b" roughness={0.4} />
+      </mesh>
+      {/* Bulb */}
+      <mesh position={[0, -0.06, 0]}>
+        <sphereGeometry args={[0.06, 8, 8]} />
+        <meshBasicMaterial color={bulbColor} />
+      </mesh>
+    </group>
+  );
+};
+
+const WallLamp: React.FC<{ position: [number, number, number]; rotationY?: number; theme: string }> = ({ position, rotationY = 0, theme }) => {
+  const isNight = theme === 'night';
+  const isSunset = theme === 'sunset';
+
+  let tubeColor = '#475569';
+  if (isNight) tubeColor = '#fef08a';
+  else if (isSunset) tubeColor = '#fdba74';
+
+  return (
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {/* Backplate mount */}
+      <mesh castShadow>
+        <boxGeometry args={[0.9, 0.06, 0.04]} />
+        <meshStandardMaterial color="#334155" roughness={0.6} />
+      </mesh>
+      {/* Horizontal Fluorescent/LED Light Tube */}
+      <mesh position={[0, 0, 0.035]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.016, 0.016, 0.82, 8]} />
+        <meshBasicMaterial color={tubeColor} />
+      </mesh>
+    </group>
+  );
+};
+
 interface IsometricRoomProps {
   activeDesk: number | null;
   onSelectDesk: (id: number) => void;
@@ -192,6 +245,17 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
           <meshStandardMaterial color={getThemePlantLeafColor()} roughness={0.9} />
         </mesh>
       </group>
+
+      {/* ---------------- HANGING CEILING LAMPS ---------------- */}
+      <HangingLamp position={[-3.5, 1.9, -0.5]} theme={theme} />
+      <HangingLamp position={[3.5, 1.9, 0.5]} theme={theme} />
+
+      {/* ---------------- WALL MOUNTED LAMPS ---------------- */}
+      {/* Left Wall Lamp */}
+      <WallLamp position={[-7.38, 1.6, -1.5]} rotationY={Math.PI / 2} theme={theme} />
+      {/* Back Wall Lamps */}
+      <WallLamp position={[-3.5, 1.6, -4.18]} rotationY={0} theme={theme} />
+      <WallLamp position={[0.5, 1.6, -4.18]} rotationY={0} theme={theme} />
 
       {/* ---------------- CLICKABLE FLOORS (For Pathfinding triggers) ---------------- */}
       <mesh 

@@ -15,6 +15,8 @@ import type { AvatarOutfit } from '../App';
 interface DashboardProps {
   theme: 'day' | 'sunset' | 'night';
   setTheme: (theme: 'day' | 'sunset' | 'night') => void;
+  environmentType: 'nature' | 'city';
+  setEnvironmentType: (env: 'nature' | 'city') => void;
   desks: DeskConfig[];
   updateDesk: (deskId: number, updates: Partial<DeskConfig>) => void;
   activeDesk: number | null;
@@ -25,6 +27,8 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({
   theme,
   setTheme,
+  environmentType,
+  setEnvironmentType,
   desks,
   updateDesk,
   activeDesk,
@@ -506,6 +510,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <DashboardHeader 
         theme={theme}
         setTheme={setTheme}
+        environmentType={environmentType}
+        setEnvironmentType={setEnvironmentType}
         showHelp={showHelp}
         setShowHelp={setShowHelp}
         status={status}

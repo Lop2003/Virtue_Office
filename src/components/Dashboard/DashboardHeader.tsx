@@ -4,6 +4,8 @@ import { HelpCircle, Mic, MicOff, LogOut } from 'lucide-react';
 interface DashboardHeaderProps {
   theme: 'day' | 'sunset' | 'night';
   setTheme: (theme: 'day' | 'sunset' | 'night') => void;
+  environmentType: 'nature' | 'city';
+  setEnvironmentType: (env: 'nature' | 'city') => void;
   showHelp: boolean;
   setShowHelp: (show: boolean) => void;
   status: string;
@@ -15,6 +17,8 @@ interface DashboardHeaderProps {
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   theme,
   setTheme,
+  environmentType,
+  setEnvironmentType,
   showHelp,
   setShowHelp,
   status,
@@ -24,13 +28,30 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 }) => {
   return (
     <div className="w-full flex justify-between items-start pointer-events-auto select-none">
-      {/* Title Badge and Theme Selector */}
+      {/* Title Badge and Selectors */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3.5">
         <div className="glass-panel px-4 py-2.5 rounded-2xl flex items-center space-x-2.5 shadow-sm">
           <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
           <h1 className="text-sm font-bold text-slate-800 tracking-wide font-sans">
             Virtual WFH Oasis
           </h1>
+        </div>
+
+        {/* Environment Selector (Pill Switcher) */}
+        <div className="glass-panel p-1 rounded-2xl flex space-x-0.5 shadow-sm border border-white">
+          {(['nature', 'city'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setEnvironmentType(t)}
+              className={`px-3 py-1.5 text-xs font-extrabold capitalize rounded-xl transition-all duration-300 cursor-pointer ${
+                environmentType === t
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
+              }`}
+            >
+              {t === 'nature' ? '🌿 Nature' : '🏙️ City'}
+            </button>
+          ))}
         </div>
 
         {/* Theme Selector (Pill Switcher) */}

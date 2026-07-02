@@ -22,6 +22,7 @@ function App() {
 
   // Creative features state lifting
   const [theme, setTheme] = useState<'day' | 'sunset' | 'night'>('day');
+  const [environmentType, setEnvironmentType] = useState<'nature' | 'city'>('nature');
   const [desks, setDesks] = useState<DeskConfig[]>(DESK_CONFIGS);
   const [sipTrigger, setSipTrigger] = useState<number>(0);
   const [activeDesk, setActiveDesk] = useState<number | null>(null);
@@ -121,6 +122,7 @@ function App() {
           <OfficeScene 
             emojiParticlesRef={emojiParticlesRef} 
             theme={theme}
+            environmentType={environmentType}
             desks={desks}
             sipTrigger={sipTrigger}
             triggerSip={triggerSip}
@@ -134,6 +136,8 @@ function App() {
         <Dashboard 
           theme={theme}
           setTheme={setTheme}
+          environmentType={environmentType}
+          setEnvironmentType={setEnvironmentType}
           desks={desks}
           updateDesk={updateDesk}
           activeDesk={activeDesk}

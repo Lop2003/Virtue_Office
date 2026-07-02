@@ -78,6 +78,55 @@ export const OfficeLights: React.FC<OfficeLightsProps> = ({ theme }) => {
         intensity={lights.fillIntensity}
         color={lights.fillColor}
       />
+      {theme === 'night' && (
+        <>
+          {/* Cozy warm interior ceiling lights to contrast with the dark cyber cityscape */}
+          <pointLight 
+            position={[-3.5, 1.84, -0.5]} 
+            intensity={3.6} 
+            distance={10} 
+            decay={1.2} 
+            color="#ffecd9" 
+            castShadow
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+          />
+          <pointLight 
+            position={[3.5, 1.84, 0.5]} 
+            intensity={3.6} 
+            distance={10} 
+            decay={1.2} 
+            color="#ffecd9" 
+            castShadow
+            shadow-mapSize-width={512}
+            shadow-mapSize-height={512}
+          />
+          {/* Wall Lamp 1 (Left Wall) */}
+          <pointLight 
+            position={[-7.3, 1.6, -1.5]} 
+            intensity={1.4} 
+            distance={6} 
+            decay={1.5} 
+            color="#fef08a" 
+          />
+          {/* Wall Lamp 2 (Back Wall Left) */}
+          <pointLight 
+            position={[-3.5, 1.6, -4.1]} 
+            intensity={1.4} 
+            distance={6} 
+            decay={1.5} 
+            color="#fef08a" 
+          />
+          {/* Wall Lamp 3 (Back Wall Right) */}
+          <pointLight 
+            position={[0.5, 1.6, -4.1]} 
+            intensity={1.4} 
+            distance={6} 
+            decay={1.5} 
+            color="#fef08a" 
+          />
+        </>
+      )}
     </>
   );
 };

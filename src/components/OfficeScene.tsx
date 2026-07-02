@@ -10,6 +10,8 @@ import { ChatBox } from './Chat/ChatBox';
 import type { ChatMessage } from './Chat/ChatBox';
 import type { AvatarOutfit } from '../App';
 import { OfficeLights } from './OfficeScene/OfficeLights';
+import { OuterEnvironment } from './OfficeScene/OuterEnvironment';
+import { CityEnvironment } from './OfficeScene/CityEnvironment';
 import { DESK_CONFIGS } from '../utils/deskConfigs';
 import type { DeskConfig } from '../utils/deskConfigs';
 export { DESK_CONFIGS };
@@ -18,6 +20,7 @@ export type { DeskConfig };
 interface OfficeSceneProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
   theme: 'day' | 'sunset' | 'night';
+  environmentType: 'nature' | 'city';
   desks: DeskConfig[];
   sipTrigger: number;
   triggerSip: (deskPosition: [number, number, number]) => void;
@@ -29,6 +32,7 @@ interface OfficeSceneProps {
 export const OfficeScene: React.FC<OfficeSceneProps> = ({ 
   emojiParticlesRef,
   theme,
+  environmentType,
   desks,
   sipTrigger,
   triggerSip,
@@ -206,6 +210,13 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
         {/* --- 3. Scene Content --- */}
         <group position={[0, -0.6, 0]}>
+          {/* Outer Stylized Environment */}
+          {environmentType === 'nature' ? (
+            <OuterEnvironment theme={theme} />
+          ) : (
+            <CityEnvironment theme={theme} />
+          )}
+
           {/* Room Geometry - Renders desks and colleague sitters */}
           <IsometricRoom 
             activeDesk={activeDesk} 
