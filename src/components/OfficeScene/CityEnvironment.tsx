@@ -318,6 +318,8 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
   // Prevent TS unused variable errors while procedural code is disabled
   void buildings;
   void FancyBuilding;
+  void groundColor;
+  void roadColor;
 
   return (
     <group position={[0, -0.6, 0]}>

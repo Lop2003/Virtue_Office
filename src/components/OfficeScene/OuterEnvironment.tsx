@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Stars, Sparkles } from '@react-three/drei';
+import { Stars, Sparkles, useGLTF } from '@react-three/drei';
 
 interface OuterEnvironmentProps {
   theme: 'day' | 'sunset' | 'night';
@@ -162,21 +162,23 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
   const dirtColor = theme === 'night' ? '#1c1917' : theme === 'sunset' ? '#553018' : '#78350f';
   const waterColor = theme === 'night' ? '#0ea5e9' : theme === 'sunset' ? '#f59e0b' : '#38bdf8';
 
+  const { scene: forestScene } = useGLTF('/low-poly-forest.glb');
+
+  // Prevent TS unused variable errors
+  void trees; void bushes; void rocks; void mushrooms; void grassColor; void dirtColor; void waterColor;
+  void LowPolyTree; void LowPolyRock; void LowPolyBush; void GlowingMushroom;
+
   return (
     <group position={[0, -0.6, 0]}>
-      {/* Main Island Ground (Grass) */}
+      {/* Disabled Procedural Environment to prevent Z-fighting and overlap with the Custom Model
       <mesh position={[0, -0.1, 0]} receiveShadow>
         <cylinderGeometry args={[24, 24, 0.2, 64]} />
         <meshStandardMaterial color={grassColor} roughness={0.8} />
       </mesh>
-
-      {/* Main Island Dirt Base */}
       <mesh position={[0, -1.2, 0]} receiveShadow>
         <cylinderGeometry args={[24, 22, 2.0, 64]} />
         <meshStandardMaterial color={dirtColor} roughness={0.9} />
       </mesh>
-      
-      {/* Sub-island rocks floating underneath */}
       <mesh position={[2, -3.5, 4]} rotation={[0.4, 0.2, 0.1]} receiveShadow>
         <dodecahedronGeometry args={[4, 0]} />
         <meshStandardMaterial color={dirtColor} roughness={0.9} flatShading />
@@ -185,8 +187,6 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
         <dodecahedronGeometry args={[3.5, 0]} />
         <meshStandardMaterial color={dirtColor} roughness={0.9} flatShading />
       </mesh>
-
-      {/* Outer Water / Magical Ring */}
       <mesh position={[0, -1.8, 0]} receiveShadow>
         <cylinderGeometry args={[35, 35, 0.1, 64]} />
         <meshPhysicalMaterial 
@@ -199,47 +199,26 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
           thickness={2.0}
         />
       </mesh>
-
-      {/* Render Trees */}
       {trees.map((tree) => (
-        <LowPolyTree 
-          key={tree.id} 
-          position={tree.position} 
-          scale={tree.scale} 
-          theme={theme} 
-        />
+        <LowPolyTree key={tree.id} position={tree.position} scale={tree.scale} theme={theme} />
       ))}
-
-      {/* Render Rocks */}
       {rocks.map((rock) => (
-        <LowPolyRock 
-          key={rock.id} 
-          position={rock.position} 
-          scale={rock.scale} 
-          rotation={rock.rotation} 
-          theme={theme} 
-        />
+        <LowPolyRock key={rock.id} position={rock.position} scale={rock.scale} rotation={rock.rotation} theme={theme} />
       ))}
-
-      {/* Render Bushes */}
       {bushes.map((bush) => (
-        <LowPolyBush 
-          key={bush.id} 
-          position={bush.position} 
-          scale={bush.scale} 
-          theme={theme} 
-        />
+        <LowPolyBush key={bush.id} position={bush.position} scale={bush.scale} theme={theme} />
       ))}
-
-      {/* Render Glowing Mushrooms */}
       {mushrooms.map((mush) => (
-        <GlowingMushroom 
-          key={mush.id} 
-          position={mush.position} 
-          scale={mush.scale} 
-          theme={theme} 
-        />
+        <GlowingMushroom key={mush.id} position={mush.position} scale={mush.scale} theme={theme} />
       ))}
+      */}
+
+      {/* Custom Forest Model */}
+      <primitive 
+        object={forestScene} 
+        position={[-20.55, 5.69, -8.23]} 
+        scale={[33.81, 33.81, 33.81]} 
+      />
 
       {/* Theme specific atmospheric effects */}
       {theme === 'night' && (
