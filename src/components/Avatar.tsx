@@ -6,7 +6,7 @@ import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
 import type { EmojiParticlesHandle } from './EmojiParticles';
 import type { DeskConfig } from './OfficeScene';
 import type { AvatarOutfit } from '../App';
-import { findPath, checkCollision } from '../utils/pathfinding';
+import { findPath, resolveMovement } from '../utils/pathfinding';
 import { HumanMesh } from './Avatar/HumanMesh';
 import { Armchair } from 'lucide-react';
 
@@ -399,25 +399,7 @@ export const Avatar: React.FC<AvatarProps> = ({
 
       const walkSpeed = 3.2;
       const nextPos = currentPos.current.clone().addScaledVector(moveDir, delta * walkSpeed);
-
-      // Perform sliding collision check
-      if (!checkCollision(nextPos.x, nextPos.z, activeDesk)) {
-        currentPos.current.copy(nextPos);
-      } else {
-        // Try to slide along X axis
-        const nextPosX = currentPos.current.clone();
-        nextPosX.x = nextPos.x;
-        if (!checkCollision(nextPosX.x, nextPosX.z, activeDesk)) {
-          currentPos.current.copy(nextPosX);
-        } else {
-          // Try to slide along Z axis
-          const nextPosZ = currentPos.current.clone();
-          nextPosZ.z = nextPos.z;
-          if (!checkCollision(nextPosZ.x, nextPosZ.z, activeDesk)) {
-            currentPos.current.copy(nextPosZ);
-          }
-        }
-      }
+      currentPos.current.copy(resolveMovement(currentPos.current, nextPos, activeDesk));
 
       // Rotate avatar smoothly to face movement direction
       const heading = Math.atan2(moveDir.x, moveDir.z);
@@ -433,16 +415,17 @@ export const Avatar: React.FC<AvatarProps> = ({
         const step = delta * walkSpeed;
         
         if (step >= dist) {
-          currentPos.current.copy(wp);
+          currentPos.current.copy(resolveMovement(currentPos.current, wp, activeDesk));
           waypointIndexRef.current++;
-          
+
           if (waypointIndexRef.current >= pathRef.current.length) {
             onArrive();
           }
         } else {
           diff.normalize().multiplyScalar(step);
-          currentPos.current.add(diff);
-          
+          const nextPos = currentPos.current.clone().add(diff);
+          currentPos.current.copy(resolveMovement(currentPos.current, nextPos, activeDesk));
+
           const heading = Math.atan2(diff.x, diff.z);
           currentRotY.current = THREE.MathUtils.lerp(currentRotY.current, heading, 0.25);
         }

@@ -5,12 +5,12 @@ import { OfficeDesk } from './OfficeDesk';
 import type { DeskConfig } from './OfficeScene';
 
 // --- Shared Floor / Wall Geometries ---
-const SUB_FLOOR_GEO = new THREE.BoxGeometry(14.8, 0.1, 8.4);
-const FLOOR_PLANK_GEO = new THREE.BoxGeometry(0.38, 0.01, 8.4);
+const SUB_FLOOR_GEO = new THREE.BoxGeometry(14.8, 0.1, 10.4);
+const FLOOR_PLANK_GEO = new THREE.BoxGeometry(0.38, 0.01, 10.4);
 const RUG_GEO = new THREE.CylinderGeometry(1.4, 1.4, 0.01, 16); // 16 segments is enough
-const SKIRTING_LEFT_GEO = new THREE.BoxGeometry(0.04, 0.16, 8.4);
+const SKIRTING_LEFT_GEO = new THREE.BoxGeometry(0.04, 0.16, 10.4);
 const SKIRTING_BACK_GEO = new THREE.BoxGeometry(14.8, 0.16, 0.04);
-const WALL_LEFT_GEO = new THREE.BoxGeometry(0.04, 2.5, 8.4);
+const WALL_LEFT_GEO = new THREE.BoxGeometry(0.04, 2.5, 10.4);
 const WALL_BACK_GEO = new THREE.BoxGeometry(14.8, 2.5, 0.04);
 
 const HangingLamp: React.FC<{ position: [number, number, number]; theme: string }> = ({ position, theme }) => {
@@ -180,11 +180,11 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
       </mesh>
 
       {/* Back Wall */}
-      <mesh castShadow receiveShadow position={[0, 1.25, -4.22]} geometry={WALL_BACK_GEO}>
+      <mesh castShadow receiveShadow position={[0, 1.25, -5.22]} geometry={WALL_BACK_GEO}>
         <meshStandardMaterial color={wallColor} roughness={0.9} />
       </mesh>
       {/* Back Skirting */}
-      <mesh castShadow position={[0, 0.08, -4.2]} geometry={SKIRTING_BACK_GEO}>
+      <mesh castShadow position={[0, 0.08, -5.2]} geometry={SKIRTING_BACK_GEO}>
         <meshStandardMaterial color={skirtingColor} roughness={0.7} />
       </mesh>
 
@@ -203,7 +203,7 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
       </group>
 
       {/* ---------------- WINDOWS (Glows based on theme time) ---------------- */}
-      <group position={[3.2, 1.45, -4.21]}>
+      <group position={[3.2, 1.45, -5.21]}>
         {/* Frame */}
         <mesh castShadow>
           <boxGeometry args={[2.5, 1.3, 0.06]} />
@@ -220,7 +220,7 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
 
       {/* ---------------- DECORATIVE OFFICE PLANTS ---------------- */}
       {/* Left Back Corner Plant */}
-      <group position={[-6.5, 0.01, -3.4]}>
+      <group position={[-6.5, 0.01, -4.4]}>
         {/* Pot */}
         <mesh castShadow position={[0, 0.28, 0]}>
           <cylinderGeometry args={[0.26, 0.18, 0.56, 12]} />
@@ -254,8 +254,8 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
       {/* Left Wall Lamp */}
       <WallLamp position={[-7.38, 1.6, -1.5]} rotationY={Math.PI / 2} theme={theme} />
       {/* Back Wall Lamps */}
-      <WallLamp position={[-3.5, 1.6, -4.18]} rotationY={0} theme={theme} />
-      <WallLamp position={[0.5, 1.6, -4.18]} rotationY={0} theme={theme} />
+      <WallLamp position={[-3.5, 1.6, -5.18]} rotationY={0} theme={theme} />
+      <WallLamp position={[0.5, 1.6, -5.18]} rotationY={0} theme={theme} />
 
       {/* ---------------- CLICKABLE FLOORS (For Pathfinding triggers) ---------------- */}
       <mesh 
@@ -267,7 +267,7 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
           onSelectFloor(e.point);
         }}
       >
-        <planeGeometry args={[14.8, 8.4]} />
+        <planeGeometry args={[14.8, 10.4]} />
       </mesh>
 
       {/* ---------------- OFFICE DESKS RIG ---------------- */}

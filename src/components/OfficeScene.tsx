@@ -42,6 +42,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 }) => {
   const [isWalking, setIsWalking] = useState<boolean>(false);
   const [targetPosition, setTargetPosition] = useState<[number, number, number]>([0, 0, 0]); // Standing on rug
+  const [queuedTargetPosition, setQueuedTargetPosition] = useState<[number, number, number] | null>(null);
+  const [pendingDeskId, setPendingDeskId] = useState<number | null>(null);
 
   // Chat states
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
@@ -149,37 +151,68 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
   const handleSelectDesk = (id: number) => {
     if (isWalking) return;
+    setQueuedTargetPosition(null);
     setIsWalking(true);
-    setActiveDesk(id);
+    setActiveDesk(null);
 
     const destDesk = desks[id];
     const rotY = destDesk.rotationY || 0;
-    const offsetZ = -0.65 * Math.cos(rotY);
-    const offsetX = -0.65 * Math.sin(rotY);
+    const chairDirectionX = -Math.sin(rotY);
+    const chairDirectionZ = -Math.cos(rotY);
+    const seatDistance = destDesk.hasColleague === false ? 0.65 : 1.25;
+
+    setPendingDeskId(destDesk.hasColleague === false ? id : null);
 
     setTargetPosition([
-      destDesk.position[0] + offsetX,
+      destDesk.position[0] + chairDirectionX * seatDistance,
       0,
-      destDesk.position[2] + offsetZ
+      destDesk.position[2] + chairDirectionZ * seatDistance
     ]);
   };
   
   const handleKeyboardStartMove = () => {
     if (isWalking && activeDesk === null) return;
+    setQueuedTargetPosition(null);
+    setPendingDeskId(null);
     setIsWalking(true);
     setActiveDesk(null);
   };
 
   const handleStandUp = () => {
+    setQueuedTargetPosition(null);
+    setPendingDeskId(null);
     setActiveDesk(null);
     setIsWalking(false);
   };
 
   const handleSelectFloor = (point: THREE.Vector3) => {
     if (isWalking) return;
+    const clickTarget: [number, number, number] = [point.x, 0, point.z];
+
+    if (activeDesk !== null) {
+      const desk = desks[activeDesk];
+      if (desk) {
+        const rotY = desk.rotationY || 0;
+        const offsetZ = -0.95 * Math.cos(rotY);
+        const offsetX = -0.95 * Math.sin(rotY);
+
+        setQueuedTargetPosition(clickTarget);
+        setPendingDeskId(null);
+        setIsWalking(true);
+        setTargetPosition([
+          desk.position[0] + offsetX,
+          0,
+          desk.position[2] + offsetZ
+        ]);
+        return;
+      }
+    }
+
+    setQueuedTargetPosition(null);
+    setPendingDeskId(null);
     setIsWalking(true);
     setActiveDesk(null); // Stand on floor
-    setTargetPosition([point.x, 0, point.z]);
+    setTargetPosition(clickTarget);
   };
 
   return (
@@ -235,7 +268,23 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
               activeDesk={activeDesk} 
               targetPosition={targetPosition}
               isWalking={isWalking}
-              onArrive={() => setIsWalking(false)}
+              onArrive={() => {
+                if (queuedTargetPosition) {
+                  const nextTarget = queuedTargetPosition;
+                  setQueuedTargetPosition(null);
+                  setPendingDeskId(null);
+                  setActiveDesk(null);
+                  setTargetPosition(nextTarget);
+                  return;
+                }
+
+                if (pendingDeskId !== null) {
+                  setActiveDesk(pendingDeskId);
+                  setPendingDeskId(null);
+                }
+
+                setIsWalking(false);
+              }}
               desks={desks}
               sipTrigger={sipTrigger}
               outfit={outfit}

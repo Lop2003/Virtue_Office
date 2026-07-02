@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { DESK_CONFIGS } from './deskConfigs';
 
-// Discretized grid parameters for the 14.8 x 8.4 floor
+// Discretized grid parameters for the 14.8 x 10.4 floor
 const gridSpacing = 0.25;
 const colCount = Math.floor(14.8 / gridSpacing); // ~59 cols
-const rowCount = Math.floor(8.4 / gridSpacing);   // ~33 rows
+const rowCount = Math.floor(10.4 / gridSpacing);  // ~41 rows
 
 const xMin = -7.4;
-const zMin = -4.2;
+const zMin = -5.2;
 
 // Convert world position to grid index
 export const worldToGrid = (x: number, z: number): [number, number] => {
@@ -34,49 +34,53 @@ const isWalkable = (
   startRow: number,
   targetCol: number,
   targetRow: number,
+  target: THREE.Vector3,
   activeDesk: number | null
 ): boolean => {
   if (col < 0 || col >= colCount || row < 0 || row >= rowCount) return false;
 
-  // Start and target cells are always walkable
-  if ((col === startCol && row === startRow) || (col === targetCol && row === targetRow)) return true;
+  // Start cell is always walkable so pathfinding can begin from the avatar's current spot
+  if (col === startCol && row === startRow) return true;
 
   const cellPos = gridToWorld(col, row);
 
+  // Target must respect collision at the exact clicked/seat point, not the grid center.
+  // Seat targets can sit right outside a desk while the coarse grid center is still padded.
+  if (col === targetCol && row === targetRow) {
+    return !checkCollision(target.x, target.z, activeDesk);
+  }
+
   // Padding limits from walls
-  if (Math.abs(cellPos.x) > 7.1 || Math.abs(cellPos.z) > 3.9) return false;
+  if (Math.abs(cellPos.x) > 7.1 || Math.abs(cellPos.z) > 4.9) return false;
 
-  // Bounding box collision check for each desk
-  for (const desk of DESK_CONFIGS) {
-    const dx = desk.position[0];
-    const dz = desk.position[2];
+  return !checkCollision(cellPos.x, cellPos.z, activeDesk);
+};
 
-    // Desk size is [1.8, 0.06, 1.0]. Adding safety padding (0.12 units) for avatar width.
-    const padX = 0.9 + 0.12;
-    const padZ = 0.5 + 0.12;
+const canStepTo = (
+  fromCol: number,
+  fromRow: number,
+  toCol: number,
+  toRow: number,
+  startCol: number,
+  startRow: number,
+  targetCol: number,
+  targetRow: number,
+  target: THREE.Vector3,
+  activeDesk: number | null
+): boolean => {
+  if (!isWalkable(toCol, toRow, startCol, startRow, targetCol, targetRow, target, activeDesk)) {
+    return false;
+  }
 
+  // Prevent cutting through desk corners on diagonal moves
+  const dCol = toCol - fromCol;
+  const dRow = toRow - fromRow;
+  if (dCol !== 0 && dRow !== 0) {
     if (
-      cellPos.x >= dx - padX && 
-      cellPos.x <= dx + padX && 
-      cellPos.z >= dz - padZ && 
-      cellPos.z <= dz + padZ
+      !isWalkable(fromCol + dCol, fromRow, startCol, startRow, targetCol, targetRow, target, activeDesk) ||
+      !isWalkable(fromCol, fromRow + dRow, startCol, startRow, targetCol, targetRow, target, activeDesk)
     ) {
-      return false; // Collides with desk
-    }
-
-    // Chair collision check (only block if it contains a colleague)
-    if (desk.id !== activeDesk && desk.hasColleague !== false) {
-      const rotY = desk.rotationY || 0;
-      const offsetZ = -0.65 * Math.cos(rotY);
-      const offsetX = -0.65 * Math.sin(rotY);
-      const cx = dx + offsetX;
-      const cz = dz + offsetZ;
-
-      // Chair diameter ~0.6 units. Adding padding ~0.15. Total radius ~0.45.
-      const distSq = (cellPos.x - cx) * (cellPos.x - cx) + (cellPos.z - cz) * (cellPos.z - cz);
-      if (distSq < 0.45 * 0.45) {
-        return false; // Collides with sitting colleague
-      }
+      return false;
     }
   }
 
@@ -90,7 +94,7 @@ export const checkCollision = (
   activeDesk: number | null
 ): boolean => {
   // Padding limits from walls
-  if (Math.abs(x) > 7.1 || Math.abs(z) > 3.9) return true; // Collides with wall
+  if (Math.abs(x) > 7.1 || Math.abs(z) > 4.9) return true; // Collides with wall
 
   // Bounding box collision check for each desk
   for (const desk of DESK_CONFIGS) {
@@ -128,6 +132,31 @@ export const checkCollision = (
   return false; // No collision
 };
 
+// Slide along walls/desks when a desired move is blocked (shared by WASD and click-to-move)
+export const resolveMovement = (
+  current: THREE.Vector3,
+  desired: THREE.Vector3,
+  activeDesk: number | null
+): THREE.Vector3 => {
+  if (!checkCollision(desired.x, desired.z, activeDesk)) {
+    return desired;
+  }
+
+  const slideX = current.clone();
+  slideX.x = desired.x;
+  if (!checkCollision(slideX.x, slideX.z, activeDesk)) {
+    return slideX;
+  }
+
+  const slideZ = current.clone();
+  slideZ.z = desired.z;
+  if (!checkCollision(slideZ.x, slideZ.z, activeDesk)) {
+    return slideZ;
+  }
+
+  return current.clone();
+};
+
 // BFS Shortest Path Finder
 export const findPath = (
   start: THREE.Vector3,
@@ -139,6 +168,9 @@ export const findPath = (
 
   // Fast path: if start and target are in the same cell
   if (startCol === targetCol && startRow === targetRow) {
+    if (checkCollision(target.x, target.z, activeDesk)) {
+      return [];
+    }
     return [target.clone()];
   }
 
@@ -175,7 +207,7 @@ export const findPath = (
       const nextKey = `${nextCol},${nextRow}`;
 
       if (!visited.has(nextKey)) {
-        if (isWalkable(nextCol, nextRow, startCol, startRow, targetCol, targetRow, activeDesk)) {
+        if (canStepTo(currCol, currRow, nextCol, nextRow, startCol, startRow, targetCol, targetRow, target, activeDesk)) {
           visited.add(nextKey);
           parentMap.set(nextKey, `${currCol},${currRow}`);
           queue.push([nextCol, nextRow]);
@@ -199,16 +231,18 @@ export const findPath = (
       currKey = parent;
     }
 
-    // Replace the final grid node with the exact click coordinate for precision snapping
+    // Only snap to the exact click point when it is actually walkable
     if (path.length > 0) {
-      path[path.length - 1].copy(target);
+      if (!checkCollision(target.x, target.z, activeDesk)) {
+        path[path.length - 1].copy(target);
+      }
     } else {
-      path.push(target.clone());
+      path.push(gridToWorld(targetCol, targetRow));
     }
 
     return path;
   }
 
-  // Fallback to direct path if BFS is blocked (avoids freezing)
-  return [target.clone()];
+  // No valid path — do not fall back to a straight line through desks
+  return [];
 };
