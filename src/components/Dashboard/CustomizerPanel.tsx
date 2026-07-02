@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Armchair, Shirt } from 'lucide-react';
 import type { DeskConfig } from '../OfficeScene';
 import type { AvatarOutfit } from '../../App';
 
@@ -34,19 +34,21 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
             <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
               <button
                 onClick={() => setActiveTab('desk')}
-                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
                   activeTab === 'desk' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                🪑 Desk
+                <Armchair size={12} />
+                <span>Desk</span>
               </button>
               <button
                 onClick={() => setActiveTab('avatar')}
-                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer ${
+                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
                   activeTab === 'avatar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                👕 Avatar
+                <Shirt size={12} />
+                <span>Avatar</span>
               </button>
             </div>
           ) : (

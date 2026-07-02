@@ -8,6 +8,7 @@ import type { DeskConfig } from './OfficeScene';
 import type { AvatarOutfit } from '../App';
 import { findPath, checkCollision } from '../utils/pathfinding';
 import { HumanMesh } from './Avatar/HumanMesh';
+import { Armchair } from 'lucide-react';
 
 interface AvatarProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
@@ -682,7 +683,7 @@ export const Avatar: React.FC<AvatarProps> = ({
                   ? 'bg-slate-700 text-slate-100 border-slate-600' 
                   : 'bg-slate-100 text-slate-700 border-slate-200'
               }`}>Space</span>
-              <span className="text-sm leading-none" role="img" aria-label="chair">🪑</span>
+              <Armchair size={13} className="text-indigo-500 flex-shrink-0" />
             </div>
           </Html>
         )}

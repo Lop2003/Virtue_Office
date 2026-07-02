@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpCircle, Mic, MicOff, LogOut } from 'lucide-react';
+import { HelpCircle, Mic, MicOff, LogOut, Sun, Sunset, Moon, Trees, Building2 } from 'lucide-react';
 
 interface DashboardHeaderProps {
   theme: 'day' | 'sunset' | 'night';
@@ -49,7 +49,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
               }`}
             >
-              {t === 'nature' ? '🌿 Nature' : '🏙️ City'}
+              <span className="flex items-center space-x-1">
+                {t === 'nature' ? <Trees size={14} /> : <Building2 size={14} />}
+                <span>{t === 'nature' ? 'Nature' : 'City'}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -66,7 +69,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
               }`}
             >
-              {t === 'day' ? '☀️ Day' : t === 'sunset' ? '🌅 Sunset' : '🌙 Night'}
+              <span className="flex items-center space-x-1">
+                {t === 'day' ? <Sun size={14} /> : t === 'sunset' ? <Sunset size={14} /> : <Moon size={14} />}
+                <span>{t === 'day' ? 'Day' : t === 'sunset' ? 'Sunset' : 'Night'}</span>
+              </span>
             </button>
           ))}
         </div>

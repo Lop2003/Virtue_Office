@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume1, Volume2, Music, Play, Pause, SkipForward, Trash2 } from 'lucide-react';
+import { Volume1, Volume2, Music, Play, Pause, SkipForward, Trash2, CloudRain, Wind, Bell } from 'lucide-react';
 
 interface FocusSoundscapesProps {
   activeSoundscape: string | null;
@@ -42,19 +42,20 @@ export const FocusSoundscapes: React.FC<FocusSoundscapesProps> = ({
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
-          { id: 'rain', label: '🌧️ Rain' },
-          { id: 'wind', label: '🍃 Wind' },
-          { id: 'bells', label: '🔔 Bells' }
+          { id: 'rain', label: 'Rain', icon: <CloudRain size={16} /> },
+          { id: 'wind', label: 'Wind', icon: <Wind size={16} /> },
+          { id: 'bells', label: 'Bells', icon: <Bell size={16} /> }
         ].map((s) => (
           <button
             key={s.id}
             onClick={() => onToggleSoundscape(s.id)}
-            className={`py-2.5 px-1.5 text-xs font-extrabold rounded-xl transition-all duration-300 border cursor-pointer flex flex-col items-center justify-center space-y-1.5 ${
+            className={`py-2 px-1 text-xs font-extrabold rounded-xl transition-all duration-300 border cursor-pointer flex flex-col items-center justify-center space-y-1 ${
               activeSoundscape === s.id
                 ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-105'
                 : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white hover:border-slate-300'
             }`}
           >
+            {s.icon}
             <span>{s.label}</span>
             <span className="text-[9px] font-bold opacity-80">
               {activeSoundscape === s.id ? 'Playing' : 'Play'}
@@ -116,7 +117,10 @@ export const FocusSoundscapes: React.FC<FocusSoundscapesProps> = ({
                       className="flex-1 text-left truncate pr-2 cursor-pointer font-sans"
                       title="เล่นเพลงนี้"
                     >
-                      {isCurrent && isYtPlaying ? '🔊 ' : ''}{track.title}
+                      <span className="flex items-center space-x-1 inline-flex max-w-full">
+                        {isCurrent && isYtPlaying && <Volume2 size={12} className="text-indigo-600 animate-pulse flex-shrink-0" />}
+                        <span className="truncate">{track.title}</span>
+                      </span>
                     </button>
                     <button 
                       onClick={() => onRemoveTrack(index)}
