@@ -131,7 +131,7 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                 </div>
               </div>
 
-              {/* Outfit color selectors (Only show for Humans) */}
+              {/* Outfit color & accessories selectors (Only show for Humans) */}
               {outfit.type === 'human' && (
                 <>
                   {/* Skin Tone */}
@@ -167,41 +167,41 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                       ))}
                     </div>
                   </div>
+
+                  {/* Accessories */}
+                  <div className="flex flex-col space-y-2">
+                    <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Accessories</span>
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700">Classic Glasses</span>
+                      <button
+                        onClick={() => setOutfit((prev) => ({ ...prev, hasGlasses: !prev.hasGlasses }))}
+                        className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
+                          outfit.hasGlasses
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
+                            : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
+                        }`}
+                      >
+                        {outfit.hasGlasses ? 'Equipped' : 'Equip'}
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-700">DJ Headphones</span>
+                      <button
+                        onClick={() => setOutfit((prev) => ({ ...prev, hasHeadphones: !prev.hasHeadphones }))}
+                        className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
+                          outfit.hasHeadphones
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
+                            : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
+                        }`}
+                      >
+                        {outfit.hasHeadphones ? 'Equipped' : 'Equip'}
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
-
-              {/* Accessories (Common to both) */}
-              <div className="flex flex-col space-y-2">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Accessories</span>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">Classic Glasses</span>
-                  <button
-                    onClick={() => setOutfit((prev) => ({ ...prev, hasGlasses: !prev.hasGlasses }))}
-                    className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
-                      outfit.hasGlasses
-                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
-                        : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
-                    }`}
-                  >
-                    {outfit.hasGlasses ? 'Equipped' : 'Equip'}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">DJ Headphones</span>
-                  <button
-                    onClick={() => setOutfit((prev) => ({ ...prev, hasHeadphones: !prev.hasHeadphones }))}
-                    className={`px-3 py-1 text-[9px] font-extrabold uppercase rounded-lg border transition-all duration-200 cursor-pointer ${
-                      outfit.hasHeadphones
-                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm'
-                        : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white'
-                    }`}
-                  >
-                    {outfit.hasHeadphones ? 'Equipped' : 'Equip'}
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </motion.div>

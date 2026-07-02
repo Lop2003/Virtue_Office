@@ -7,8 +7,8 @@ interface OuterEnvironmentProps {
 
 const LowPolyTree: React.FC<{ position: [number, number, number]; scale: number; theme: string }> = ({ position, scale, theme }) => {
   // Tree colors based on theme
-  const leavesColor = theme === 'night' ? '#0f766e' : theme === 'sunset' ? '#f59e0b' : '#22c55e';
-  const trunkColor = theme === 'night' ? '#451a03' : theme === 'sunset' ? '#6b3f1d' : '#78350f';
+  const leavesColor = theme === 'night' ? '#0f766e' : theme === 'sunset' ? '#c7700cff' : '#085223';
+  const trunkColor = theme === 'night' ? '#451a03' : theme === 'sunset' ? '#f28837ff' : '#78350f';
 
   return (
     <group position={position} scale={scale}>
@@ -64,7 +64,7 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
 
 
   // Colors for the island base depending on theme
-  const grassColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#c2410c' : '#86efac';
+  const grassColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#3f4712' : '#085223';
   const dirtColor = theme === 'night' ? '#1c1917' : theme === 'sunset' ? '#553018' : '#78350f';
   const waterColor = theme === 'night' ? '#0ea5e9' : theme === 'sunset' ? '#f59e0b' : '#38bdf8';
 
@@ -81,7 +81,7 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
         <cylinderGeometry args={[24, 22, 2.0, 64]} />
         <meshStandardMaterial color={dirtColor} roughness={0.9} />
       </mesh>
-      
+
       {/* Sub-island rocks floating underneath */}
       <mesh position={[2, -3.5, 4]} rotation={[0.4, 0.2, 0.1]} receiveShadow>
         <dodecahedronGeometry args={[4, 0]} />
@@ -95,8 +95,8 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
       {/* Outer Water / Magical Ring */}
       <mesh position={[0, -1.8, 0]} receiveShadow>
         <cylinderGeometry args={[35, 35, 0.1, 64]} />
-        <meshPhysicalMaterial 
-          color={waterColor} 
+        <meshPhysicalMaterial
+          color={waterColor}
           transmission={0.6}
           opacity={0.8}
           transparent={true}
@@ -108,11 +108,11 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
 
       {/* Render Trees */}
       {trees.map((tree) => (
-        <LowPolyTree 
-          key={tree.id} 
-          position={tree.position} 
-          scale={tree.scale} 
-          theme={theme} 
+        <LowPolyTree
+          key={tree.id}
+          position={tree.position}
+          scale={tree.scale}
+          theme={theme}
         />
       ))}
 
@@ -131,7 +131,7 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
           <Sparkles count={70} scale={[50, 14, 50]} size={4} speed={0.12} opacity={0.18} color="#ffd166" position={[0, 4, 0]} />
         </group>
       )}
-      
+
       {theme === 'day' && (
         <group>
           {/* Subtle pollen/dust */}
