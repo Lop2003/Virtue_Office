@@ -9,110 +9,11 @@ import type { EmojiParticlesHandle } from './EmojiParticles';
 import { ChatBox } from './Chat/ChatBox';
 import type { ChatMessage } from './Chat/ChatBox';
 import type { AvatarOutfit } from '../App';
-
-export interface DeskConfig {
-  id: number;
-  position: [number, number, number];
-  rotationY?: number;
-  hasLaptop?: boolean;
-  hasLamp?: boolean;
-  hasPlant?: boolean;
-  hasMug?: boolean;
-  chairColor?: string;
-  lampColor?: string;
-  mugColor?: string;
-  deskColor?: string;
-  laptopColor?: string;
-  glowColor?: string;
-  lightIntensity?: number;
-  hasColleague?: boolean;
-}
-
-// Programmatically generate 20 desks (4 rows of 5 desks facing each other)
-const generateDesks = (): DeskConfig[] => {
-  const desks: DeskConfig[] = [];
-  let id = 0;
-  const xCoords = [-5.2, -2.6, 0.0, 2.6, 5.2];
-  const chairColors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6', '#6366f1'];
-
-  // Double-row 1 (Back Row Block)
-  // Line 1: Facing Z-positive (rotY = 0)
-  xCoords.forEach((x, col) => {
-    desks.push({
-      id: id,
-      position: [x, 0, -2.6],
-      rotationY: 0,
-      hasLaptop: true,
-      hasLamp: col % 3 === 0,
-      hasPlant: col % 2 === 0,
-      hasMug: col % 2 === 1,
-      chairColor: chairColors[id % chairColors.length],
-      lampColor: '#f43f5e',
-      lightIntensity: 1.5,
-      hasColleague: id % 3 !== 0 // Remove some colleagues
-    });
-    id++;
-  });
-  
-  // Line 2: Facing Z-negative (rotY = PI)
-  xCoords.forEach((x, col) => {
-    desks.push({
-      id: id,
-      position: [x, 0, -1.6],
-      rotationY: Math.PI,
-      hasLaptop: true,
-      hasLamp: col % 3 === 1,
-      hasPlant: col % 2 === 1,
-      hasMug: col % 2 === 0,
-      chairColor: chairColors[id % chairColors.length],
-      lampColor: '#06b6d4',
-      lightIntensity: 1.5,
-      hasColleague: id % 2 !== 0 // Remove some colleagues
-    });
-    id++;
-  });
-
-  // Double-row 2 (Front Row Block)
-  // Line 1: Facing Z-positive (rotY = 0)
-  xCoords.forEach((x, col) => {
-    desks.push({
-      id: id,
-      position: [x, 0, 1.6],
-      rotationY: 0,
-      hasLaptop: true,
-      hasLamp: col % 3 === 2,
-      hasPlant: col % 2 === 0,
-      hasMug: col % 2 === 1,
-      chairColor: chairColors[id % chairColors.length],
-      lampColor: '#f43f5e',
-      lightIntensity: 1.5,
-      hasColleague: id % 4 !== 0 // Remove some colleagues
-    });
-    id++;
-  });
-
-  // Line 2: Facing Z-negative (rotY = PI)
-  xCoords.forEach((x, col) => {
-    desks.push({
-      id: id,
-      position: [x, 0, 2.6],
-      rotationY: Math.PI,
-      hasLaptop: true,
-      hasLamp: col % 3 === 0,
-      hasPlant: col % 2 === 1,
-      hasMug: col % 2 === 0,
-      chairColor: chairColors[id % chairColors.length],
-      lampColor: '#06b6d4',
-      lightIntensity: 1.5,
-      hasColleague: id % 3 !== 1 // Remove some colleagues
-    });
-    id++;
-  });
-
-  return desks;
-};
-
-export const DESK_CONFIGS = generateDesks();
+import { OfficeLights } from './OfficeScene/OfficeLights';
+import { DESK_CONFIGS } from '../utils/deskConfigs';
+import type { DeskConfig } from '../utils/deskConfigs';
+export { DESK_CONFIGS };
+export type { DeskConfig };
 
 interface OfficeSceneProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
@@ -277,54 +178,6 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     setTargetPosition([point.x, 0, point.z]);
   };
 
-  // Dynamic light settings based on active theme
-  const getLighting = () => {
-    switch (theme) {
-      case 'sunset':
-        return {
-          ambientColor: '#fda4af',
-          ambientIntensity: 0.6,
-          hemiColor: '#ff7e5f',
-          hemiGround: '#feb47b',
-          hemiIntensity: 0.5,
-          dirColor: '#f97316',
-          dirIntensity: 2.8,
-          dirPos: [8, 4, 3] as [number, number, number],
-          fillColor: '#818cf8',
-          fillIntensity: 0.5,
-        };
-      case 'night':
-        return {
-          ambientColor: '#1e1b4b',
-          ambientIntensity: 0.6,
-          hemiColor: '#3b82f6',
-          hemiGround: '#0f172a',
-          hemiIntensity: 0.65,
-          dirColor: '#818cf8',
-          dirIntensity: 1.1,
-          dirPos: [6, 9, 5] as [number, number, number],
-          fillColor: '#c084fc',
-          fillIntensity: 0.7,
-        };
-      case 'day':
-      default:
-        return {
-          ambientColor: '#ffffff',
-          ambientIntensity: 1.1,
-          hemiColor: '#ffffff',
-          hemiGround: '#fadaaf',
-          hemiIntensity: 0.4,
-          dirColor: '#ffffff',
-          dirIntensity: 2.2,
-          dirPos: [6, 9, 5] as [number, number, number],
-          fillColor: '#e0f2fe',
-          fillIntensity: 0.7,
-        };
-    }
-  };
-
-  const lights = getLighting();
-
   return (
     <div className="w-full h-full relative">
       <Canvas
@@ -349,35 +202,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         />
 
         {/* --- 2. Lighting System (Dynamic Theme) --- */}
-        <ambientLight intensity={lights.ambientIntensity} color={lights.ambientColor} />
-
-        <hemisphereLight
-          color={lights.hemiColor}
-          groundColor={lights.hemiGround}
-          intensity={lights.hemiIntensity}
-        />
-
-        <directionalLight
-          position={lights.dirPos}
-          intensity={lights.dirIntensity}
-          color={lights.dirColor}
-          castShadow
-          shadow-mapSize-width={512}
-          shadow-mapSize-height={512}
-          shadow-camera-left={-4}
-          shadow-camera-right={4}
-          shadow-camera-top={4}
-          shadow-camera-bottom={-4}
-          shadow-camera-near={0.1}
-          shadow-camera-far={30}
-          shadow-bias={-0.0005}
-        />
-
-        <directionalLight
-          position={[-5, 5, -5]}
-          intensity={lights.fillIntensity}
-          color={lights.fillColor}
-        />
+        <OfficeLights theme={theme} />
 
         {/* --- 3. Scene Content --- */}
         <group position={[0, -0.6, 0]}>
