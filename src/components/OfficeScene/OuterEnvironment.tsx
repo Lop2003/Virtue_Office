@@ -8,10 +8,22 @@ interface OuterEnvironmentProps {
 const LowPolyTree: React.FC<{ position: [number, number, number]; scale: number; theme: string }> = ({ position, scale, theme }) => {
   // Tree colors based on theme
   const leavesColor = theme === 'night' ? '#0f766e' : theme === 'sunset' ? '#f59e0b' : '#22c55e';
-  const trunkColor = theme === 'night' ? '#451a03' : '#78350f';
+  const trunkColor = theme === 'night' ? '#451a03' : theme === 'sunset' ? '#6b3f1d' : '#78350f';
 
   return (
     <group position={position} scale={scale}>
+      <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.9, 0.5, 1]}>
+        <circleGeometry args={[0.75, 24]} />
+        <meshBasicMaterial
+          color="#000000"
+          transparent
+          opacity={theme === 'day' ? 0.22 : 0.18}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
+      </mesh>
       {/* Trunk */}
       <mesh position={[0, 0.4, 0]} castShadow>
         <cylinderGeometry args={[0.1, 0.15, 0.8, 5]} />
@@ -52,9 +64,9 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
 
 
   // Colors for the island base depending on theme
-  const grassColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#b45309' : '#86efac';
-  const dirtColor = theme === 'night' ? '#1c1917' : theme === 'sunset' ? '#451a03' : '#78350f';
-  const waterColor = theme === 'night' ? '#0ea5e9' : theme === 'sunset' ? '#f43f5e' : '#38bdf8';
+  const grassColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#c2410c' : '#86efac';
+  const dirtColor = theme === 'night' ? '#1c1917' : theme === 'sunset' ? '#553018' : '#78350f';
+  const waterColor = theme === 'night' ? '#0ea5e9' : theme === 'sunset' ? '#f59e0b' : '#38bdf8';
 
   return (
     <group position={[0, -0.6, 0]}>
@@ -104,8 +116,6 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
         />
       ))}
 
-
-
       {/* Theme specific atmospheric effects */}
       {theme === 'night' && (
         <group>
@@ -118,14 +128,14 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
       {theme === 'sunset' && (
         <group>
           {/* Warm dust particles */}
-          <Sparkles count={100} scale={[50, 20, 50]} size={6} speed={0.2} opacity={0.3} color="#fca5a5" position={[0, 5, 0]} />
+          <Sparkles count={70} scale={[50, 14, 50]} size={4} speed={0.12} opacity={0.18} color="#ffd166" position={[0, 4, 0]} />
         </group>
       )}
       
       {theme === 'day' && (
         <group>
           {/* Subtle pollen/dust */}
-          <Sparkles count={50} scale={[50, 20, 50]} size={3} speed={0.1} opacity={0.2} color="#ffffff" position={[0, 5, 0]} />
+          <Sparkles count={40} scale={[50, 14, 50]} size={2.5} speed={0.08} opacity={0.16} color="#ffffff" position={[0, 4, 0]} />
         </group>
       )}
     </group>

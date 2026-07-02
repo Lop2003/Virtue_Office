@@ -12,7 +12,14 @@
     height: 100vh;
     overflow: hidden;
     font-family: 'Kanit', 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #f3f4f6;
+    background-color: #f8fbff;
+  }
+
+  body {
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.85), transparent 35%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
   }
 }
 
@@ -54,4 +61,17 @@
 
 .pulse-glow {
   animation: soft-pulse 3s infinite ease-in-out;
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.float-slow {
+  animation: float-slow 8s ease-in-out infinite;
 }

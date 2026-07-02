@@ -82,6 +82,18 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
   // Base building layout depending on style
   return (
     <group position={position}>
+      <mesh position={[0, 0.115, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[width * 0.82, depth * 0.58, 1]}>
+        <circleGeometry args={[1, 28]} />
+        <meshBasicMaterial
+          color="#000000"
+          transparent
+          opacity={theme === 'day' ? 0.2 : 0.26}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
+      </mesh>
       {/* 1. ARCHITECTURAL STYLES */}
       
       {/* Style 0: Stepped Glass Tower */}
@@ -340,13 +352,25 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
           const z = Math.sin(angle) * radius;
           lamps.push(
             <group key={i} position={[x, 0, z]}>
+              <mesh position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.42, 0.28, 1]}>
+                <circleGeometry args={[1, 20]} />
+                <meshBasicMaterial
+                  color="#000000"
+                  transparent
+                  opacity={theme === 'day' ? 0.16 : 0.24}
+                  depthWrite={false}
+                  polygonOffset
+                  polygonOffsetFactor={-1}
+                  polygonOffsetUnits={-1}
+                />
+              </mesh>
               {/* Lamp Pole */}
-              <mesh position={[0, 0.8, 0]}>
+              <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
                 <cylinderGeometry args={[0.03, 0.05, 1.6, 5]} />
                 <meshStandardMaterial color="#475569" />
               </mesh>
               {/* Light Bulb */}
-              <mesh position={[0, 1.65, 0]}>
+              <mesh position={[0, 1.65, 0]} castShadow>
                 <sphereGeometry args={[0.1, 8, 8]} />
                 <meshStandardMaterial 
                   color={streetlampColor} 

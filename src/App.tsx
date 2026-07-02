@@ -73,37 +73,14 @@ function App() {
   const getThemeBgClass = () => {
     switch (theme) {
       case 'sunset':
-        return 'from-orange-100 via-rose-100 to-indigo-100';
+        return 'from-[#211006] via-[#5a3414] to-[#0f0905]';
       case 'night':
         return 'from-[#0b0f19] via-[#1a1b35] to-[#05060b]';
       case 'day':
       default:
-        return 'from-amber-50 via-indigo-50 to-cyan-50';
+        return 'from-[#f7fbff] via-[#eef8ff] to-[#eefcf7]';
     }
   };
-
-  const getThemeOrbClasses = () => {
-    switch (theme) {
-      case 'sunset':
-        return {
-          orb1: 'bg-orange-300/30',
-          orb2: 'bg-rose-300/20',
-        };
-      case 'night':
-        return {
-          orb1: 'bg-indigo-500/20 shadow-[0_0_50px_rgba(99,102,241,0.2)]',
-          orb2: 'bg-fuchsia-500/10 shadow-[0_0_50px_rgba(217,70,239,0.1)]',
-        };
-      case 'day':
-      default:
-        return {
-          orb1: 'bg-purple-200/40',
-          orb2: 'bg-cyan-200/30',
-        };
-    }
-  };
-
-  const orbs = getThemeOrbClasses();
 
   return (
     <AudioAnalyzerProvider>
@@ -111,11 +88,19 @@ function App() {
         Container with a soothing pastel mesh/linear gradient.
         Transitioning dynamically between Day, Sunset, and Cyber-Night.
       */}
-      <main className={`relative w-full h-full min-h-screen overflow-hidden bg-gradient-to-tr ${getThemeBgClass()} flex items-center justify-center select-none transition-colors duration-1000`}>
-        
-        {/* Floating background decorative glowing orbs */}
-        <div className={`absolute top-1/4 left-1/4 w-80 h-80 ${orbs.orb1} rounded-full filter blur-3xl pointer-events-none animate-pulse transition-colors duration-1000`} />
-        <div className={`absolute bottom-1/4 right-1/4 w-96 h-96 ${orbs.orb2} rounded-full filter blur-3xl pointer-events-none animate-pulse delay-1000 transition-colors duration-1000`} />
+      <main className={`relative w-full h-full min-h-screen overflow-hidden bg-gradient-to-br ${getThemeBgClass()} flex items-center justify-center select-none transition-colors duration-700`}>
+        <div
+          className={`pointer-events-none absolute inset-0 transition-opacity duration-700 ${
+            theme === 'day'
+              ? 'bg-[radial-gradient(circle_at_20%_15%,rgba(255,255,255,0.95),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(191,219,254,0.55),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.28),rgba(255,255,255,0.02))]'
+              : theme === 'sunset'
+                ? 'bg-[radial-gradient(circle_at_18%_14%,rgba(251,191,36,0.42),transparent_30%),radial-gradient(circle_at_82%_22%,rgba(251,146,60,0.26),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(0,0,0,0.14))]'
+                : 'bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.22),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.2))]'
+          }`}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_35%,rgba(0,0,0,0.07)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(15,23,42,0.08)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/20 to-transparent" />
         
         {/* 3D R3F Canvas Container */}
         <div className="w-full h-full z-0">
@@ -151,4 +136,3 @@ function App() {
 }
 
 export default App;
-
