@@ -28,9 +28,9 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
       <AnimatePresence mode="wait">
         
         {/* Onboarding Connect Screen */}
-        {status === 'idle' && (
+        {status === 'disconnected' && (
           <motion.div
-            key="idle"
+            key="disconnected"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
@@ -53,9 +53,9 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
         )}
 
         {/* Loading Request Screen */}
-        {status === 'loading' && (
+        {status === 'connecting' && (
           <motion.div
-            key="loading"
+            key="connecting"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
