@@ -15,7 +15,7 @@ export const OfficeLights: React.FC<OfficeLightsProps> = ({ theme }) => {
           hemiSkyColor: '#ffe0b2',
           hemiGroundColor: '#5a3414',
           hemiIntensity: 0.52,
-          dirPosition: [7, 10, 6] as [number, number, number],
+          dirPosition: [12, 4.2, 7] as [number, number, number],
           dirIntensity: 1.9,
           dirColor: '#ffb347', // golden sunset glow
           fillIntensity: 0.82,

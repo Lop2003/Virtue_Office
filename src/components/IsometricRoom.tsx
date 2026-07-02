@@ -38,6 +38,21 @@ const HangingLamp: React.FC<{ position: [number, number, number]; theme: string 
         <sphereGeometry args={[0.06, 8, 8]} />
         <meshBasicMaterial color={bulbColor} />
       </mesh>
+
+      {/* Volumetric Light Beam Cone */}
+      {(isNight || isSunset) && (
+        <mesh position={[0, -0.96, 0]}>
+          <cylinderGeometry args={[0.04, 1.1, 1.8, 16, 1, true]} />
+          <meshBasicMaterial 
+            color={isNight ? '#ffedd5' : '#fed7aa'} 
+            transparent 
+            opacity={isNight ? 0.09 : 0.05} 
+            blending={THREE.AdditiveBlending} 
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
     </group>
   );
 };
@@ -62,6 +77,20 @@ const WallLamp: React.FC<{ position: [number, number, number]; rotationY?: numbe
         <cylinderGeometry args={[0.016, 0.016, 0.82, 8]} />
         <meshBasicMaterial color={tubeColor} />
       </mesh>
+
+      {/* Volumetric light wash effect on wall */}
+      {(isNight || isSunset) && (
+        <mesh position={[0, -0.7, -0.015]}>
+          <planeGeometry args={[1.3, 1.4]} />
+          <meshBasicMaterial 
+            color={isNight ? '#fef08a' : '#fdba74'} 
+            transparent 
+            opacity={isNight ? 0.08 : 0.04} 
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
     </group>
   );
 };

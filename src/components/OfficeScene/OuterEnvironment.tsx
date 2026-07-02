@@ -7,11 +7,12 @@ interface OuterEnvironmentProps {
 
 const LowPolyTree: React.FC<{ position: [number, number, number]; scale: number; theme: string }> = ({ position, scale, theme }) => {
   // Tree colors based on theme
-  const leavesColor = theme === 'night' ? '#0f766e' : theme === 'sunset' ? '#c7700cff' : '#085223';
-  const trunkColor = theme === 'night' ? '#451a03' : theme === 'sunset' ? '#f28837ff' : '#78350f';
+  const leavesColor = theme === 'night' ? '#0f766e' : theme === 'sunset' ? '#b45309' : '#085223';
+  const trunkColor = theme === 'night' ? '#451a03' : theme === 'sunset' ? '#6b3f1d' : '#78350f';
 
   return (
     <group position={position} scale={scale}>
+      {/* Shadow disc */}
       <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[0.9, 0.5, 1]}>
         <circleGeometry args={[0.75, 24]} />
         <meshBasicMaterial
@@ -42,26 +43,119 @@ const LowPolyTree: React.FC<{ position: [number, number, number]; scale: number;
   );
 };
 
+const LowPolyRock: React.FC<{ position: [number, number, number]; scale: [number, number, number]; rotation: [number, number, number]; theme: string }> = ({ position, scale, rotation, theme }) => {
+  let rockColor = theme === 'night' ? '#1e293b' : theme === 'sunset' ? '#5c544e' : '#64748b';
+  return (
+    <mesh position={position} scale={scale} rotation={rotation} castShadow receiveShadow>
+      <dodecahedronGeometry args={[0.55, 0]} />
+      <meshStandardMaterial color={rockColor} roughness={0.9} flatShading />
+    </mesh>
+  );
+};
 
+const LowPolyBush: React.FC<{ position: [number, number, number]; scale: number; theme: string }> = ({ position, scale, theme }) => {
+  let bushColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#854d0e' : '#166534';
+  return (
+    <mesh position={position} scale={scale} castShadow receiveShadow>
+      <dodecahedronGeometry args={[0.65, 1]} />
+      <meshStandardMaterial color={bushColor} roughness={0.95} flatShading />
+    </mesh>
+  );
+};
+
+const GlowingMushroom: React.FC<{ position: [number, number, number]; scale: number; theme: string }> = ({ position, scale, theme }) => {
+  const isNight = theme === 'night';
+  const isSunset = theme === 'sunset';
+  let stemColor = '#f1f5f9';
+  let capColor = isNight ? '#fb7185' : isSunset ? '#fb923c' : '#ef4444';
+
+  return (
+    <group position={position} scale={scale}>
+      {/* Stem */}
+      <mesh position={[0, 0.1, 0]} castShadow>
+        <cylinderGeometry args={[0.03, 0.04, 0.22, 5]} />
+        <meshStandardMaterial color={stemColor} roughness={0.8} />
+      </mesh>
+      {/* Cap */}
+      <mesh position={[0, 0.22, 0]} castShadow>
+        <sphereGeometry args={[0.13, 6, 6, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial 
+          color={capColor} 
+          emissive={capColor} 
+          emissiveIntensity={(isNight || isSunset) ? 1.8 : 0} 
+          roughness={0.5} 
+        />
+      </mesh>
+    </group>
+  );
+};
 
 export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => {
   // Generate random tree positions that sit outside the main office boundary
   const trees = useMemo(() => {
     const items = [];
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 35; i++) {
       const angle = Math.random() * Math.PI * 2;
-      // Radius between 11 and 23 (office is approx 8x5)
       const radius = 11 + Math.random() * 12;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
-      // Scale variations
       const scale = 0.8 + Math.random() * 0.7;
       items.push({ id: i, position: [x, 0, z] as [number, number, number], scale });
     }
     return items;
   }, []);
 
+  // Generate random rocks
+  const rocks = useMemo(() => {
+    const items = [];
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 10.5 + Math.random() * 12.5;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      
+      const scale: [number, number, number] = [
+        0.5 + Math.random() * 0.8,
+        0.5 + Math.random() * 0.8,
+        0.5 + Math.random() * 0.8
+      ];
+      const rotation: [number, number, number] = [
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      ];
+      items.push({ id: i, position: [x, -0.05, z] as [number, number, number], scale, rotation });
+    }
+    return items;
+  }, []);
 
+  // Generate random bushes
+  const bushes = useMemo(() => {
+    const items = [];
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 11 + Math.random() * 12;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const scale = 0.7 + Math.random() * 0.6;
+      items.push({ id: i, position: [x, 0.05, z] as [number, number, number], scale });
+    }
+    return items;
+  }, []);
+
+  // Generate random mushrooms
+  const mushrooms = useMemo(() => {
+    const items = [];
+    for (let i = 0; i < 24; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 9.5 + Math.random() * 13;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const scale = 0.8 + Math.random() * 0.7;
+      items.push({ id: i, position: [x, -0.05, z] as [number, number, number], scale });
+    }
+    return items;
+  }, []);
 
   // Colors for the island base depending on theme
   const grassColor = theme === 'night' ? '#064e3b' : theme === 'sunset' ? '#3f4712' : '#085223';
@@ -81,7 +175,7 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
         <cylinderGeometry args={[24, 22, 2.0, 64]} />
         <meshStandardMaterial color={dirtColor} roughness={0.9} />
       </mesh>
-
+      
       {/* Sub-island rocks floating underneath */}
       <mesh position={[2, -3.5, 4]} rotation={[0.4, 0.2, 0.1]} receiveShadow>
         <dodecahedronGeometry args={[4, 0]} />
@@ -95,8 +189,8 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
       {/* Outer Water / Magical Ring */}
       <mesh position={[0, -1.8, 0]} receiveShadow>
         <cylinderGeometry args={[35, 35, 0.1, 64]} />
-        <meshPhysicalMaterial
-          color={waterColor}
+        <meshPhysicalMaterial 
+          color={waterColor} 
           transmission={0.6}
           opacity={0.8}
           transparent={true}
@@ -108,11 +202,42 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
 
       {/* Render Trees */}
       {trees.map((tree) => (
-        <LowPolyTree
-          key={tree.id}
-          position={tree.position}
-          scale={tree.scale}
-          theme={theme}
+        <LowPolyTree 
+          key={tree.id} 
+          position={tree.position} 
+          scale={tree.scale} 
+          theme={theme} 
+        />
+      ))}
+
+      {/* Render Rocks */}
+      {rocks.map((rock) => (
+        <LowPolyRock 
+          key={rock.id} 
+          position={rock.position} 
+          scale={rock.scale} 
+          rotation={rock.rotation} 
+          theme={theme} 
+        />
+      ))}
+
+      {/* Render Bushes */}
+      {bushes.map((bush) => (
+        <LowPolyBush 
+          key={bush.id} 
+          position={bush.position} 
+          scale={bush.scale} 
+          theme={theme} 
+        />
+      ))}
+
+      {/* Render Glowing Mushrooms */}
+      {mushrooms.map((mush) => (
+        <GlowingMushroom 
+          key={mush.id} 
+          position={mush.position} 
+          scale={mush.scale} 
+          theme={theme} 
         />
       ))}
 
@@ -131,7 +256,7 @@ export const OuterEnvironment: React.FC<OuterEnvironmentProps> = ({ theme }) => 
           <Sparkles count={70} scale={[50, 14, 50]} size={4} speed={0.12} opacity={0.18} color="#ffd166" position={[0, 4, 0]} />
         </group>
       )}
-
+      
       {theme === 'day' && (
         <group>
           {/* Subtle pollen/dust */}

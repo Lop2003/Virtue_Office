@@ -1,7 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
-import { Stars, Sparkles } from '@react-three/drei';
+import { Stars, Sparkles, useGLTF } from '@react-three/drei';
 
 interface CityEnvironmentProps {
   theme: 'day' | 'sunset' | 'night';
@@ -21,43 +21,45 @@ interface BuildingData {
 const DEFAULT_CAMERA_AZIMUTH = Math.atan2(8, 8);
 const CAMERA_AZIMUTH_MIN = DEFAULT_CAMERA_AZIMUTH - Math.PI / 10;
 const CAMERA_AZIMUTH_MAX = DEFAULT_CAMERA_AZIMUTH + Math.PI / 1.6;
-// Exclude the full arc that can enter frame while orbiting the camera
-const VIEW_CORRIDOR_MIN = CAMERA_AZIMUTH_MIN - Math.PI / 2.2;
-const VIEW_CORRIDOR_MAX = CAMERA_AZIMUTH_MAX + Math.PI / 2.2;
+// Exclude the arc that can enter frame while orbiting the camera
+const VIEW_CORRIDOR_MIN = CAMERA_AZIMUTH_MIN - 0.2;
+const VIEW_CORRIDOR_MAX = CAMERA_AZIMUTH_MAX + 0.3;
 
-const isInViewCorridor = (angle: number) =>
-  angle > VIEW_CORRIDOR_MIN && angle < VIEW_CORRIDOR_MAX;
+const isInViewCorridor = (angle: number) => {
+  const normAngle = angle > Math.PI ? angle - Math.PI * 2 : angle;
+  return normAngle > VIEW_CORRIDOR_MIN && normAngle < VIEW_CORRIDOR_MAX;
+};
 
 // A helper to get theme-reactive colors
 const getThemeColors = (theme: 'day' | 'sunset' | 'night', style: number, neonColor: string) => {
   switch (theme) {
     case 'sunset':
       return {
-        facade: style === 0 ? '#4b5563' : '#374151',
-        glass: '#f97316',
-        neon: '#f59e0b',
-        emissiveIntensity: 0.8,
+        facade: style === 0 ? '#703e55' : style === 1 ? '#2c294d' : style === 2 ? '#7a4231' : '#39243f',
+        glass: style % 2 === 0 ? '#f43f5e' : '#f97316',
+        neon: neonColor,
+        emissiveIntensity: 1.2,
         metalness: 0.5,
         roughness: 0.3
       };
     case 'night':
       return {
-        facade: style === 0 ? '#0f172a' : '#1e293b',
-        glass: '#38bdf8',
+        facade: style === 0 ? '#0b1120' : style === 1 ? '#130d26' : style === 2 ? '#171e2e' : '#1a1025',
+        glass: style % 2 === 0 ? '#0ea5e9' : '#8b5cf6',
         neon: neonColor,
-        emissiveIntensity: 2.2,
+        emissiveIntensity: 3.0,
         metalness: 0.8,
         roughness: 0.1
       };
     case 'day':
     default:
       return {
-        facade: style === 0 ? '#e2e8f0' : '#cbd5e1',
-        glass: '#94a3b8',
-        neon: '#94a3b8',
+        facade: style === 0 ? '#ffffff' : style === 1 ? '#f8fafc' : style === 2 ? '#fdf8f6' : '#f0fdf4',
+        glass: style === 0 ? '#38bdf8' : style === 1 ? '#60a5fa' : style === 2 ? '#34d399' : '#818cf8',
+        neon: neonColor,
         emissiveIntensity: 0,
-        metalness: 0.3,
-        roughness: 0.5
+        metalness: 0.6,
+        roughness: 0.15
       };
   }
 };
@@ -118,26 +120,26 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
             />
           </mesh>
           {/* Glowing Windows - Vertical Stripes */}
-          {theme !== 'day' && (
-            <>
-              <mesh position={[0, height * 0.4, depth / 2 + 0.02]}>
-                <planeGeometry args={[width * 0.3, height * 0.7]} />
-                <meshStandardMaterial 
-                  color={colors.glass} 
-                  emissive={colors.glass} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-              <mesh position={[0, height * 0.4, -depth / 2 - 0.02]} rotation={[0, Math.PI, 0]}>
-                <planeGeometry args={[width * 0.3, height * 0.7]} />
-                <meshStandardMaterial 
-                  color={colors.glass} 
-                  emissive={colors.glass} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-            </>
-          )}
+          <mesh position={[0, height * 0.4, depth / 2 + 0.02]}>
+            <planeGeometry args={[width * 0.3, height * 0.7]} />
+            <meshStandardMaterial 
+              color={colors.glass} 
+              emissive={colors.glass} 
+              emissiveIntensity={colors.emissiveIntensity} 
+              metalness={0.9}
+              roughness={0.1}
+            />
+          </mesh>
+          <mesh position={[0, height * 0.4, -depth / 2 - 0.02]} rotation={[0, Math.PI, 0]}>
+            <planeGeometry args={[width * 0.3, height * 0.7]} />
+            <meshStandardMaterial 
+              color={colors.glass} 
+              emissive={colors.glass} 
+              emissiveIntensity={colors.emissiveIntensity} 
+              metalness={0.9}
+              roughness={0.1}
+            />
+          </mesh>
         </group>
       )}
 
@@ -153,28 +155,26 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
             />
           </mesh>
           {/* Neon corner lines */}
-          {theme !== 'day' && (
-            <group>
-              {/* Corner Trim Front-Right */}
-              <mesh position={[width / 2 + 0.01, height / 2, depth / 2 + 0.01]}>
-                <boxGeometry args={[0.08, height, 0.08]} />
-                <meshStandardMaterial 
-                  color={colors.neon} 
-                  emissive={colors.neon} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-              {/* Corner Trim Front-Left */}
-              <mesh position={[-width / 2 - 0.01, height / 2, depth / 2 + 0.01]}>
-                <boxGeometry args={[0.08, height, 0.08]} />
-                <meshStandardMaterial 
-                  color={colors.neon} 
-                  emissive={colors.neon} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-            </group>
-          )}
+          <group>
+            {/* Corner Trim Front-Right */}
+            <mesh position={[width / 2 + 0.01, height / 2, depth / 2 + 0.01]}>
+              <boxGeometry args={[0.08, height, 0.08]} />
+              <meshStandardMaterial 
+                color={colors.neon} 
+                emissive={colors.neon} 
+                emissiveIntensity={colors.emissiveIntensity} 
+              />
+            </mesh>
+            {/* Corner Trim Front-Left */}
+            <mesh position={[-width / 2 - 0.01, height / 2, depth / 2 + 0.01]}>
+              <boxGeometry args={[0.08, height, 0.08]} />
+              <meshStandardMaterial 
+                color={colors.neon} 
+                emissive={colors.neon} 
+                emissiveIntensity={colors.emissiveIntensity} 
+              />
+            </mesh>
+          </group>
         </group>
       )}
 
@@ -190,26 +190,22 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
             />
           </mesh>
           {/* Glowing Ring Bands around the cylindrical building */}
-          {theme !== 'day' && (
-            <>
-              <mesh position={[0, height * 0.7, 0]}>
-                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
-                <meshStandardMaterial 
-                  color={colors.neon} 
-                  emissive={colors.neon} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-              <mesh position={[0, height * 0.4, 0]}>
-                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
-                <meshStandardMaterial 
-                  color={colors.neon} 
-                  emissive={colors.neon} 
-                  emissiveIntensity={colors.emissiveIntensity} 
-                />
-              </mesh>
-            </>
-          )}
+          <mesh position={[0, height * 0.7, 0]}>
+            <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
+            <meshStandardMaterial 
+              color={colors.neon} 
+              emissive={colors.neon} 
+              emissiveIntensity={colors.emissiveIntensity} 
+            />
+          </mesh>
+          <mesh position={[0, height * 0.4, 0]}>
+            <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
+            <meshStandardMaterial 
+              color={colors.neon} 
+              emissive={colors.neon} 
+              emissiveIntensity={colors.emissiveIntensity} 
+            />
+          </mesh>
         </group>
       )}
 
@@ -274,6 +270,8 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
 };
 
 export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
+  const { scene: cityScene } = useGLTF('/low-poly-city.glb');
+  
   // Generate random building positions with unique visual styles, avoiding the camera's line of sight
   const buildings = useMemo(() => {
     const items: BuildingData[] = [];
@@ -281,7 +279,7 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
 
     let attempts = 0;
     // Place buildings only in the far skyline arc (never in any orbit-pannable view corridor)
-    while (items.length < 24 && attempts < 300) {
+    while (items.length < 38 && attempts < 500) {
       attempts++;
       const angle = Math.random() * Math.PI * 2;
 
@@ -317,30 +315,37 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
   const roadColor = theme === 'night' ? '#020617' : theme === 'sunset' ? '#1c0702' : '#1e293b';
   const streetlampColor = theme === 'night' ? '#fde047' : theme === 'sunset' ? '#f59e0b' : '#94a3b8';
 
+  // Prevent TS unused variable errors while procedural code is disabled
+  void buildings;
+  void FancyBuilding;
+
   return (
     <group position={[0, -0.6, 0]}>
-      {/* Platform */}
+      {/* Platform (Disabled to prevent Z-fighting with new model)
       <mesh position={[0, -0.1, 0]} receiveShadow>
         <cylinderGeometry args={[35, 35, 0.2, 64]} />
         <meshStandardMaterial color={groundColor} roughness={0.8} />
       </mesh>
 
-      {/* Ring Road */}
       <mesh position={[0, -0.05, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[10.5, 12.5, 32]} />
         <meshStandardMaterial color={roadColor} roughness={0.7} />
       </mesh>
 
-      {/* Platform Dirt base */}
       <mesh position={[0, -1.2, 0]} receiveShadow>
         <cylinderGeometry args={[35, 33, 2.0, 64]} />
         <meshStandardMaterial color={roadColor} roughness={0.9} />
       </mesh>
+      */}
 
-      {/* Procedural Buildings */}
+      {/* Procedural Buildings 
       {buildings.map((b) => (
         <FancyBuilding key={b.id} data={b} theme={theme} />
       ))}
+      */}
+      
+      {/* Custom City Model */}
+      <primitive object={cityScene} position={[52.69, 0.00, 9.15]} scale={[1, 1, 1]} />
 
       {/* Decorative Cyber Streetlamps along the road */}
       {useMemo(() => {

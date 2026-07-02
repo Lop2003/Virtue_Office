@@ -229,6 +229,20 @@ export const OfficeDesk: React.FC<OfficeDeskProps> = ({
             distance={5} 
             decay={1.8}
           />
+          {/* Volumetric glow cone under desk lamp */}
+          {(theme === 'night' || theme === 'sunset') && (
+            <mesh position={[0, 0.08, 0]}>
+              <cylinderGeometry args={[0.02, 0.22, 0.45, 12, 1, true]} />
+              <meshBasicMaterial 
+                color={lampColor} 
+                transparent 
+                opacity={theme === 'night' ? 0.15 : 0.08} 
+                blending={THREE.AdditiveBlending} 
+                depthWrite={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )}
         </group>
       )}
 
