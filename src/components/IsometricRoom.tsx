@@ -222,12 +222,14 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
 
         // Desk rotation
         const rotY = desk.rotationY || 0;
+        const offsetX = -0.65 * Math.sin(rotY);
+        const offsetZ = -0.65 * Math.cos(rotY);
 
         // NPC Sit placement
         const chairPos: [number, number, number] = [
-          deskX,
+          deskX + offsetX,
           deskY,
-          deskZ - 0.65
+          deskZ + offsetZ
         ];
 
         return (

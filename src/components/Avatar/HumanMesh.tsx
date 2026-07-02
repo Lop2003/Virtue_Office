@@ -24,7 +24,7 @@ export const HumanMesh: React.FC<HumanMeshProps> = ({
   humanHeadRef
 }) => {
   return (
-    <group scale={0.88}>
+    <group scale={1.125}>
       {/* Torso */}
       <mesh ref={humanTorsoRef as any} position={[0, 0.45, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.22, 0.18, 0.5, 8]} />
@@ -62,7 +62,7 @@ export const HumanMesh: React.FC<HumanMeshProps> = ({
       </group>
 
       {/* Left Leg */}
-      <group ref={humanLeftLegRef as any} position={isSeated ? [-0.1, 0.22, 0.18] : [-0.1, 0.15, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+      <group ref={humanLeftLegRef as any} position={isSeated ? [-0.1, 0.22, 0.18] : [-0.1, 0.22, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
         <mesh castShadow receiveShadow>
           <cylinderGeometry args={[0.065, 0.055, 0.44, 8]} />
           <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />
@@ -70,7 +70,7 @@ export const HumanMesh: React.FC<HumanMeshProps> = ({
       </group>
 
       {/* Right Leg */}
-      <group ref={humanRightLegRef as any} position={isSeated ? [0.1, 0.22, 0.18] : [0.1, 0.15, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+      <group ref={humanRightLegRef as any} position={isSeated ? [0.1, 0.22, 0.18] : [0.1, 0.22, 0]} rotation={isSeated ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
         <mesh castShadow receiveShadow>
           <cylinderGeometry args={[0.065, 0.055, 0.44, 8]} />
           <meshStandardMaterial color={outfit.clothingColor} roughness={0.7} />

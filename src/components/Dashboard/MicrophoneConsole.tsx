@@ -24,7 +24,7 @@ export const MicrophoneConsole: React.FC<MicrophoneConsoleProps> = ({
   };
 
   return (
-    <div className="w-full max-w-xs pointer-events-auto select-none">
+    <div className="w-full pointer-events-auto select-none">
       <AnimatePresence mode="wait">
         
         {/* Onboarding Connect Screen */}

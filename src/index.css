@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Kanit', 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
 @layer base {
   html, body, #root {
     margin: 0;
@@ -7,7 +11,7 @@
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Kanit', 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
     background-color: #f3f4f6;
   }
 }

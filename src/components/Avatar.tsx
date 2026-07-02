@@ -569,14 +569,14 @@ export const Avatar: React.FC<AvatarProps> = ({
         // Snap legs
         if (humanLeftLegRef.current && humanRightLegRef.current) {
           if (isSeated) {
-            humanLeftLegRef.current.position.set(-0.12, -0.12, 0.2);
+            humanLeftLegRef.current.position.set(-0.1, 0.22, 0.18);
             humanLeftLegRef.current.rotation.x = -Math.PI / 2;
-            humanRightLegRef.current.position.set(0.12, -0.12, 0.2);
+            humanRightLegRef.current.position.set(0.1, 0.22, 0.18);
             humanRightLegRef.current.rotation.x = -Math.PI / 2;
           } else {
-            humanLeftLegRef.current.position.set(-0.12, -0.28, 0);
+            humanLeftLegRef.current.position.set(-0.1, 0.15, 0);
             humanLeftLegRef.current.rotation.x = 0;
-            humanRightLegRef.current.position.set(0.12, -0.28, 0);
+            humanRightLegRef.current.position.set(0.1, 0.15, 0);
             humanRightLegRef.current.rotation.x = 0;
           }
         }
@@ -611,7 +611,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   // Adjust height offsets
   const isSeated = activeDesk !== null && !isWalking;
   const positionOffsetZ = isSeated ? 0.05 : 0;
-  const positionOffsetY = isSeated ? (outfit.type === 'robot' ? 0.45 : 0.3) : 0;
+  const positionOffsetY = isSeated ? (outfit.type === 'robot' ? 0.45 : 0.38) : 0;
   return (
     <group ref={avatarGroupRef}>
       <group position={[0, positionOffsetY, positionOffsetZ]}>

@@ -208,7 +208,7 @@ export const OfficeDesk: React.FC<OfficeDeskProps> = ({
 
       {/* ---------------- LAPTOP ---------------- */}
       {hasLaptop && (
-        <group position={[-0.15, 0.77, -0.28]} rotation={[0, Math.PI / 8, 0]}>
+        <group position={[-0.15, 0.77, -0.08]} rotation={[0, Math.PI + Math.PI / 8, 0]}>
           <mesh castShadow receiveShadow geometry={LAPTOP_BASE_GEO} material={getCachedMaterial(laptopColor, 0.5, 0.75)} />
           <mesh geometry={LAPTOP_KEYBOARD_GEO} material={MAT_LAPTOP_KEYBOARD} position={[0, 0.01, 0.04]} />
           <mesh geometry={LAPTOP_TRACKPAD_GEO} material={MAT_LAPTOP_TRACKPAD} position={[0, 0.009, 0.1]} />
@@ -258,18 +258,20 @@ export const OfficeDesk: React.FC<OfficeDeskProps> = ({
         >
           <DuckModel />
           {isSelected && (
-            <Text
-              position={[0, 0.38, 0]}
-              fontSize={0.08}
-              color={theme === 'night' ? '#67e8f9' : '#4f46e5'}
-              font="https://fonts.gstatic.com/s/outfit/v11/Q3pwU5thAf2G72K4469pp5_6bWp3W9n067Z9.woff"
-              anchorX="center"
-              anchorY="middle"
-              outlineWidth={0.008}
-              outlineColor={theme === 'night' ? '#0f172a' : '#ffffff'}
-            >
-              🥛 Sip
-            </Text>
+            <React.Suspense fallback={null}>
+              <Text
+                position={[0, 0.38, 0]}
+                fontSize={0.08}
+                color={theme === 'night' ? '#67e8f9' : '#4f46e5'}
+                font="https://fonts.gstatic.com/s/outfit/v11/Q3pwU5thAf2G72K4469pp5_6bWp3W9n067Z9.woff"
+                anchorX="center"
+                anchorY="middle"
+                outlineWidth={0.008}
+                outlineColor={theme === 'night' ? '#0f172a' : '#ffffff'}
+              >
+                🥛 Sip
+              </Text>
+            </React.Suspense>
           )}
         </group>
       )}

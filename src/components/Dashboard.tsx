@@ -61,6 +61,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isYtPlaying, setIsYtPlaying] = useState<boolean>(false);
   const ytPlayerRef = useRef<any>(null);
 
+  // Playlist queue manager states
+  const [playlist, setPlaylist] = useState<{ id: string; title: string }[]>([]);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
+
+  const playlistRef = useRef(playlist);
+  const currentTrackIndexRef = useRef(currentTrackIndex);
+  const playNextTrackRef = useRef<(() => void) | undefined>(undefined);
+
+  useEffect(() => {
+    playlistRef.current = playlist;
+  }, [playlist]);
+
+  useEffect(() => {
+    currentTrackIndexRef.current = currentTrackIndex;
+  }, [currentTrackIndex]);
+
   // Load YouTube Iframe API once
   useEffect(() => {
     if ((window as any).YT && (window as any).YT.Player) return;
@@ -118,8 +134,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onStateChange: (event: any) => {
               if (event.data === 1) {
                 setIsYtPlaying(true);
-              } else if (event.data === 2 || event.data === 0) {
+              } else if (event.data === 2) {
                 setIsYtPlaying(false);
+              } else if (event.data === 0) {
+                setIsYtPlaying(false);
+                playNextTrackRef.current?.();
               }
             }
           }
@@ -156,6 +175,66 @@ export const Dashboard: React.FC<DashboardProps> = ({
         console.error(e);
       }
     }
+  };
+
+  const playTrack = (index: number) => {
+    if (index < 0 || index >= playlist.length) return;
+    setCurrentTrackIndex(index);
+    playYoutubeVideo(playlist[index].id);
+  };
+
+  const playNextTrack = () => {
+    const nextIndex = currentTrackIndexRef.current + 1;
+    if (nextIndex < playlistRef.current.length) {
+      playTrack(nextIndex);
+    } else {
+      stopAllSoundscapes();
+    }
+  };
+
+  useEffect(() => {
+    playNextTrackRef.current = playNextTrack;
+  });
+
+  const handleAddTrack = (url: string, playNow = false) => {
+    const id = getYouTubeId(url);
+    if (!id) {
+      alert('ลิงก์ YouTube ไม่ถูกต้องครับ');
+      return;
+    }
+
+    const title = `Song #${playlist.length + 1} (${id})`;
+    const newTrack = { id, title };
+    const newPlaylist = [...playlist, newTrack];
+    setPlaylist(newPlaylist);
+
+    if (playNow || newPlaylist.length === 1) {
+      const targetIndex = playNow ? newPlaylist.length - 1 : 0;
+      setCurrentTrackIndex(targetIndex);
+      playYoutubeVideo(id);
+    }
+    setYtUrl('');
+  };
+
+  const handleRemoveTrack = (index: number) => {
+    const newPlaylist = playlist.filter((_, i) => i !== index);
+    setPlaylist(newPlaylist);
+
+    if (index === currentTrackIndex) {
+      if (newPlaylist.length === 0) {
+        stopAllSoundscapes();
+      } else {
+        const nextIndex = Math.min(index, newPlaylist.length - 1);
+        setCurrentTrackIndex(nextIndex);
+        playYoutubeVideo(newPlaylist[nextIndex].id);
+      }
+    } else if (index < currentTrackIndex) {
+      setCurrentTrackIndex(currentTrackIndex - 1);
+    }
+  };
+
+  const handleSkipTrack = () => {
+    playNextTrack();
   };
 
   // Poll current volume numerical level for UI meter
@@ -409,15 +488,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handlePlayYoutube = () => {
-    const id = getYouTubeId(ytUrl);
-    if (id) {
-      playYoutubeVideo(id);
-    } else {
-      alert('ลิงก์ YouTube ไม่ถูกต้องครับ กรุณาลองใหม่อีกครั้ง');
-    }
-  };
-
   // Clean up Web Audio nodes on unmount
   useEffect(() => {
     return () => {
@@ -456,13 +526,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* ---------------- BOTTOM BAR / DASHBOARD OVERLAY ---------------- */}
       <div className="w-full flex flex-col md:flex-row justify-between items-stretch md:items-end space-y-4 md:space-y-0 md:space-x-4 pointer-events-none">
         
-        {/* Left column: Help and Focus Audio */}
+        {/* Left column: Focus Audio */}
         <div className="flex flex-col space-y-3.5 w-full max-w-sm">
-          {/* Help/Guide Panel */}
-          <AnimatePresence>
-            <HelpPanel showHelp={showHelp} />
-          </AnimatePresence>
-
           {/* Focus Soundscapes Panel */}
           <FocusSoundscapes 
             activeSoundscape={activeSoundscape}
@@ -473,18 +538,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onYtVolumeChange={handleYtVolumeChange}
             isYtPlaying={isYtPlaying}
             onToggleYtPlay={handleToggleYtPlay}
-            onPlayYoutube={handlePlayYoutube}
+            onAddTrack={handleAddTrack}
+            playlist={playlist}
+            currentTrackIndex={currentTrackIndex}
+            onRemoveTrack={handleRemoveTrack}
+            onPlayTrack={playTrack}
+            onSkipTrack={handleSkipTrack}
           />
         </div>
 
-        {/* Live Audio Visualizer Corner Console (Right Column) */}
-        <MicrophoneConsole 
-          status={status}
-          error={error}
-          connectMicrophone={connectMicrophone}
-          currentVolumeValue={currentVolumeValue}
-          visualizerCanvasRef={visualizerCanvasRef}
-        />
+        {/* Right column: Help/Guide and Live Audio Visualizer */}
+        <div className="flex flex-col space-y-3.5 w-full max-w-sm">
+          {/* Help/Guide Panel */}
+          <AnimatePresence>
+            <HelpPanel showHelp={showHelp} />
+          </AnimatePresence>
+
+          {/* Live Audio Visualizer Corner Console */}
+          <MicrophoneConsole 
+            status={status}
+            error={error}
+            connectMicrophone={connectMicrophone}
+            currentVolumeValue={currentVolumeValue}
+            visualizerCanvasRef={visualizerCanvasRef}
+          />
+        </div>
       </div>
 
       {/* Hidden container for YouTube Player API iframe */}

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DESK_CONFIGS } from '../components/OfficeScene';
+import { DESK_CONFIGS } from './deskConfigs';
 
 // Discretized grid parameters for the 14.8 x 8.4 floor
 const gridSpacing = 0.25;
