@@ -1,32 +1,39 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
-import { 
-  Mic, 
-  MicOff, 
-  Sparkles, 
-  HelpCircle, 
-  Volume2, 
-  AlertTriangle,
-  RotateCcw,
-  LogOut
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+
+// Import refactored dashboard sub-components
+import { DashboardHeader } from './Dashboard/DashboardHeader';
+import { HelpPanel } from './Dashboard/HelpPanel';
+import { FocusSoundscapes } from './Dashboard/FocusSoundscapes';
+import { MicrophoneConsole } from './Dashboard/MicrophoneConsole';
+import { CustomizerPanel } from './Dashboard/CustomizerPanel';
+
 import type { DeskConfig } from './OfficeScene';
+import type { AvatarOutfit } from '../App';
 
 interface DashboardProps {
   theme: 'day' | 'sunset' | 'night';
   setTheme: (theme: 'day' | 'sunset' | 'night') => void;
+  environmentType: 'nature' | 'city';
+  setEnvironmentType: (env: 'nature' | 'city') => void;
   desks: DeskConfig[];
   updateDesk: (deskId: number, updates: Partial<DeskConfig>) => void;
   activeDesk: number | null;
+  outfit: AvatarOutfit;
+  setOutfit: React.Dispatch<React.SetStateAction<AvatarOutfit>>;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   theme,
   setTheme,
+  environmentType,
+  setEnvironmentType,
   desks,
   updateDesk,
-  activeDesk
+  activeDesk,
+  outfit,
+  setOutfit
 }) => {
   const { 
     status, 
@@ -52,163 +59,315 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const windLfoRef = useRef<OscillatorNode | null>(null);
   const chimeIntervalRef = useRef<any>(null);
 
+  // YouTube player states
+  const [ytUrl, setYtUrl] = useState<string>('');
+  const [ytVolume, setYtVolume] = useState<number>(50);
+  const [isYtPlaying, setIsYtPlaying] = useState<boolean>(false);
+  const ytPlayerRef = useRef<any>(null);
+
+  // Playlist queue manager states
+  const [playlist, setPlaylist] = useState<{ id: string; title: string }[]>([]);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
+
+  const playlistRef = useRef(playlist);
+  const currentTrackIndexRef = useRef(currentTrackIndex);
+  const playNextTrackRef = useRef<(() => void) | undefined>(undefined);
+
+  useEffect(() => {
+    playlistRef.current = playlist;
+  }, [playlist]);
+
+  useEffect(() => {
+    currentTrackIndexRef.current = currentTrackIndex;
+  }, [currentTrackIndex]);
+
+  // Load YouTube Iframe API once
+  useEffect(() => {
+    if ((window as any).YT && (window as any).YT.Player) return;
+
+    // Avoid duplicating script tags
+    const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+    if (!existingScript) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const playYoutubeVideo = (videoId: string) => {
+    stopAllSoundscapes();
+    setActiveSoundscape('youtube');
+
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.loadVideoById === 'function') {
+      try {
+        ytPlayerRef.current.loadVideoById(videoId);
+        ytPlayerRef.current.setVolume(ytVolume);
+        ytPlayerRef.current.playVideo();
+        setIsYtPlaying(true);
+      } catch (err) {
+        console.error('Failed to load video on existing player', err);
+      }
+    } else {
+      try {
+        ytPlayerRef.current = new (window as any).YT.Player('yt-player-placeholder', {
+          height: '1',
+          width: '1',
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            disablekb: 1,
+            fs: 0,
+            modestbranding: 1,
+            rel: 0,
+            showinfo: 0
+          },
+          events: {
+            onReady: (event: any) => {
+              event.target.setVolume(ytVolume);
+              event.target.playVideo();
+              setIsYtPlaying(true);
+            },
+            onStateChange: (event: any) => {
+              if (event.data === 1) {
+                setIsYtPlaying(true);
+              } else if (event.data === 2) {
+                setIsYtPlaying(false);
+              } else if (event.data === 0) {
+                setIsYtPlaying(false);
+                playNextTrackRef.current?.();
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Failed to create YT player', err);
+      }
+    }
+  };
+
+  const handleToggleYtPlay = () => {
+    if (!ytPlayerRef.current) return;
+    try {
+      if (isYtPlaying) {
+        ytPlayerRef.current.pauseVideo();
+        setIsYtPlaying(false);
+      } else {
+        stopAllSoundscapes();
+        setActiveSoundscape('youtube');
+        ytPlayerRef.current.playVideo();
+        setIsYtPlaying(true);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleYtVolumeChange = (vol: number) => {
+    setYtVolume(vol);
+    if (ytPlayerRef.current && typeof ytPlayerRef.current.setVolume === 'function') {
+      try {
+        ytPlayerRef.current.setVolume(vol);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const playTrack = (index: number) => {
+    if (index < 0 || index >= playlist.length) return;
+    setCurrentTrackIndex(index);
+    playYoutubeVideo(playlist[index].id);
+  };
+
+  const playNextTrack = () => {
+    const nextIndex = currentTrackIndexRef.current + 1;
+    if (nextIndex < playlistRef.current.length) {
+      playTrack(nextIndex);
+    } else {
+      stopAllSoundscapes();
+    }
+  };
+
+  useEffect(() => {
+    playNextTrackRef.current = playNextTrack;
+  });
+
+  const handleAddTrack = (url: string, playNow = false) => {
+    const id = getYouTubeId(url);
+    if (!id) {
+      alert('ลิงก์ YouTube ไม่ถูกต้องครับ');
+      return;
+    }
+
+    const title = `Song #${playlist.length + 1} (${id})`;
+    const newTrack = { id, title };
+    const newPlaylist = [...playlist, newTrack];
+    setPlaylist(newPlaylist);
+
+    if (playNow || newPlaylist.length === 1) {
+      const targetIndex = playNow ? newPlaylist.length - 1 : 0;
+      setCurrentTrackIndex(targetIndex);
+      playYoutubeVideo(id);
+    }
+    setYtUrl('');
+  };
+
+  const handleRemoveTrack = (index: number) => {
+    const newPlaylist = playlist.filter((_, i) => i !== index);
+    setPlaylist(newPlaylist);
+
+    if (index === currentTrackIndex) {
+      if (newPlaylist.length === 0) {
+        stopAllSoundscapes();
+      } else {
+        const nextIndex = Math.min(index, newPlaylist.length - 1);
+        setCurrentTrackIndex(nextIndex);
+        playYoutubeVideo(newPlaylist[nextIndex].id);
+      }
+    } else if (index < currentTrackIndex) {
+      setCurrentTrackIndex(currentTrackIndex - 1);
+    }
+  };
+
+  const handleSkipTrack = () => {
+    playNextTrack();
+  };
+
   // Poll current volume numerical level for UI meter
   useEffect(() => {
     if (status !== 'connected') {
       setCurrentVolumeValue(0);
       return;
     }
-
-    const interval = setInterval(() => {
+    const update = () => {
       setCurrentVolumeValue(getVolume());
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [status, getVolume]);
-
-  // Real-time Canvas Audio Frequency Visualizer (16-band bar chart)
-  useEffect(() => {
-    if (status !== 'connected') return;
-
-    const canvas = visualizerCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const drawVisualizer = () => {
-      const data = getRawFrequencyData();
-      if (!data) {
-        animationFrameRef.current = requestAnimationFrame(drawVisualizer);
-        return;
-      }
-
-      // Handle high DPI screens
-      const dpr = window.devicePixelRatio || 1;
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
-        ctx.scale(dpr, dpr);
-      }
-
-      ctx.clearRect(0, 0, width, height);
-
-      const numBars = 16;
-      const gap = 3;
-      const barWidth = (width - (numBars - 1) * gap) / numBars;
-
-      // Group freq bins to draw 16 bands
-      const step = Math.floor(data.length / numBars);
-
-      for (let i = 0; i < numBars; i++) {
-        // Average a small window of bins around index to make the movement smoother
-        let sum = 0;
-        const startBin = i * step;
-        for (let j = 0; j < step; j++) {
-          sum += data[startBin + j] || 0;
-        }
-        const val = sum / step;
-        const normalizedVal = val / 255;
-        // Scale with a curve to boost display of higher/lower ranges
-        const scaleFactor = Math.pow(normalizedVal, 1.2);
-        const barHeight = Math.max(4, scaleFactor * height * 0.9);
-
-        // Gradient coloring
-        const grad = ctx.createLinearGradient(0, height, 0, height - barHeight);
-        grad.addColorStop(0, '#818cf8');   // indigo-400
-        grad.addColorStop(0.4, '#a78bfa'); // violet-400
-        grad.addColorStop(0.8, '#f472b6'); // pink-400
-        grad.addColorStop(1, '#fb7185');   // rose-400
-
-        ctx.fillStyle = grad;
-
-        // X and Y positions
-        const x = i * (barWidth + gap);
-        const y = height - barHeight;
-        const radius = Math.min(barWidth / 2, 3); // round the top of the bars
-
-        ctx.beginPath();
-        if (ctx.roundRect) {
-          ctx.roundRect(x, y, barWidth, barHeight, [radius, radius, 0, 0]);
-        } else {
-          ctx.rect(x, y, barWidth, barHeight);
-        }
-        ctx.fill();
-      }
-
-      animationFrameRef.current = requestAnimationFrame(drawVisualizer);
+      animationFrameRef.current = requestAnimationFrame(update);
     };
-
-    drawVisualizer();
-
+    update();
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
+  }, [status, getVolume]);
+
+  // Audio Canvas visualizer loop
+  useEffect(() => {
+    if (status !== 'connected' || !visualizerCanvasRef.current) return;
+    
+    const canvas = visualizerCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // High quality Retina canvas scaling
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    let visualizerFrameId: number;
+
+    const draw = () => {
+      visualizerFrameId = requestAnimationFrame(draw);
+      
+      const freqs = getRawFrequencyData();
+      if (!freqs) return;
+      ctx.clearRect(0, 0, width, height);
+
+      // Render 16-band gradient visualizer bar charts
+      const barCount = 16;
+      const gap = 3.5;
+      const barWidth = (width - (barCount - 1) * gap) / barCount;
+
+      for (let i = 0; i < barCount; i++) {
+        // Map frequency bands
+        const freqIndex = Math.floor((i / barCount) * freqs.length);
+        const rawValue = freqs[freqIndex] || 0; // value from 0 to 255
+        
+        // Normalize value with custom exponential scale to look responsive
+        const percent = Math.pow(rawValue / 255, 1.25);
+        const barHeight = Math.max(3, percent * (height - 8));
+
+        // Rounded vertical pill lines
+        ctx.fillStyle = `rgba(99, 102, 241, ${0.15 + percent * 0.85})`;
+        const x = i * (barWidth + gap);
+        const y = height - barHeight - 4;
+
+        ctx.beginPath();
+        if (typeof (ctx as any).roundRect === 'function') {
+          (ctx as any).roundRect(x, y, barWidth, barHeight, 2.5);
+        } else {
+          ctx.rect(x, y, barWidth, barHeight);
+        }
+        ctx.fill();
+      }
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(visualizerFrameId);
+    };
   }, [status, getRawFrequencyData]);
 
-  // Determine noise gauge color
-  const getVolumeMeterColor = (val: number) => {
-    if (val > 0.45) return 'bg-rose-500 shadow-rose-300';
-    if (val > 0.15) return 'bg-purple-500 shadow-purple-300';
-    return 'bg-emerald-500 shadow-emerald-300';
-  };
-
-  // Soundscape synthesizers using HTML5 Web Audio API
-  const getAudioContext = () => {
+  // Get or initialize AudioContext
+  const getAudioContext = (): AudioContext => {
     if (!audioCtxRef.current) {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       audioCtxRef.current = new AudioCtx();
     }
     if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume();
+      audioCtxRef.current.resume().catch(console.error);
     }
     return audioCtxRef.current;
   };
 
+  // SOUND GENERATORS
   const startRain = (ctx: AudioContext) => {
-    const bufferSize = 2 * ctx.sampleRate;
+    const bufferSize = ctx.sampleRate * 2;
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    
-    let lastOut = 0.0;
     for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      // Brownian noise filter formula
-      output[i] = (lastOut + (0.025 * white)) / 1.025;
-      lastOut = output[i];
-      output[i] *= 3.5;
+      output[i] = Math.random() * 2 - 1;
     }
 
-    const source = ctx.createBufferSource();
-    source.buffer = noiseBuffer;
-    source.loop = true;
+    const whiteNoise = ctx.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+    whiteNoise.loop = true;
 
-    // Cozy lowpass filter to simulate rain hitting the roof/window
+    // Filter white noise to sound like rain (lowpass/bandpass combo)
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 350;
+    filter.frequency.value = 1400;
 
     const gainNode = ctx.createGain();
-    gainNode.gain.setValueAtTime(0.18, ctx.currentTime);
+    gainNode.gain.setValueAtTime(0.24, ctx.currentTime);
 
-    source.connect(filter);
+    whiteNoise.connect(filter);
     filter.connect(gainNode);
     gainNode.connect(ctx.destination);
 
-    source.start();
-    rainSourceRef.current = source;
+    whiteNoise.start();
+    rainSourceRef.current = whiteNoise;
   };
 
   const startWind = (ctx: AudioContext) => {
-    const bufferSize = 2 * ctx.sampleRate;
+    // Generate pink noise for a more natural rustling sound
+    const bufferSize = ctx.sampleRate * 2;
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
       b0 = 0.99886 * b0 + white * 0.0555179;
@@ -295,6 +454,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const stopAllSoundscapes = () => {
+    if (ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.pauseVideo();
+        setIsYtPlaying(false);
+      } catch (e) {}
+    }
     if (rainSourceRef.current) {
       try { (rainSourceRef.current as any).stop(); } catch(e){}
       rainSourceRef.current = null;
@@ -314,6 +479,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setActiveSoundscape(null);
   };
 
+  const handleToggleSoundscape = (id: string) => {
+    const ctx = getAudioContext();
+    if (activeSoundscape === id) {
+      stopAllSoundscapes();
+    } else {
+      stopAllSoundscapes();
+      setActiveSoundscape(id);
+      if (id === 'rain') startRain(ctx);
+      else if (id === 'wind') startWind(ctx);
+      else if (id === 'bells') startBells(ctx);
+    }
+  };
+
   // Clean up Web Audio nodes on unmount
   useEffect(() => {
     return () => {
@@ -329,342 +507,72 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 md:p-6">
       
       {/* ---------------- TOP BAR ---------------- */}
-      <div className="w-full flex justify-between items-start pointer-events-auto">
-        {/* Title Badge and Theme Selector */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3.5">
-          <div className="glass-panel px-4 py-2.5 rounded-2xl flex items-center space-x-2.5 shadow-sm">
-            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping" />
-            <h1 className="text-sm font-bold text-slate-800 tracking-wide font-sans">
-              Virtual WFH Oasis
-            </h1>
-          </div>
-
-          {/* Theme Selector (Pill Switcher) */}
-          <div className="glass-panel p-1 rounded-2xl flex space-x-0.5 shadow-sm border border-white">
-            {(['day', 'sunset', 'night'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={`px-3 py-1.5 text-xs font-extrabold capitalize rounded-xl transition-all duration-300 cursor-pointer ${
-                  theme === t
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/30'
-                }`}
-              >
-                {t === 'day' ? '☀️ Day' : t === 'sunset' ? '🌅 Sunset' : '🌙 Night'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Buttons (Help & Audio Toggle) */}
-        <div className="flex space-x-2">
-          <button 
-            onClick={() => setShowHelp(!showHelp)}
-            className={`glass-panel p-2.5 rounded-xl hover:bg-white transition-all duration-300 cursor-pointer ${showHelp ? 'text-indigo-600 bg-white ring-2 ring-indigo-200' : 'text-slate-600'}`}
-            title="Show Guide"
-          >
-            <HelpCircle size={20} />
-          </button>
-          
-          {status === 'connected' && (
-            <>
-              {/* Mute/Unmute Toggle Button */}
-              <button 
-                onClick={toggleMute}
-                className={`glass-panel p-2.5 rounded-xl transition-all duration-300 flex items-center space-x-1.5 cursor-pointer ${isMuted ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-indigo-600 hover:bg-indigo-50'}`}
-                title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-              >
-                {isMuted ? <MicOff size={20} className="text-rose-500 animate-pulse" /> : <Mic size={20} />}
-                <span className="text-xs font-semibold hidden sm:inline">{isMuted ? 'Muted' : 'Mute'}</span>
-              </button>
-
-              {/* Leave/Disconnect Button */}
-              <button 
-                onClick={disconnectMicrophone}
-                className="glass-panel p-2.5 rounded-xl text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-all duration-300 flex items-center space-x-1.5 cursor-pointer"
-                title="Disconnect Microphone"
-              >
-                <LogOut size={20} />
-                <span className="text-xs font-semibold hidden sm:inline">Leave</span>
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ---------------- CENTER SCREEN OVERLAYS ---------------- */}
-      <div className="flex-grow flex items-center justify-center pointer-events-none">
-        <AnimatePresence mode="wait">
-          
-          {/* Onboarding Connect Screen */}
-          {status === 'disconnected' && (
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              className="glass-panel p-6 md:p-8 rounded-3xl text-center max-w-sm w-full mx-4 shadow-xl border border-white pointer-events-auto flex flex-col items-center"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-5 ring-4 ring-indigo-100">
-                <Mic className="text-indigo-600 animate-bounce" size={28} />
-              </div>
-              <h2 className="text-xl font-extrabold text-slate-800 mb-2">Join Your Oasis</h2>
-              <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                Connect your microphone to step inside your 3D interactive virtual office. The avatar bobs and emotes to the sound of your voice!
-              </p>
-              
-              <button
-                onClick={connectMicrophone}
-                className="w-full py-3.5 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm tracking-wide shadow-lg hover:shadow-indigo-200 transition-all duration-300 transform active:scale-95 cursor-pointer pulse-glow flex items-center justify-center space-x-2"
-              >
-                <Mic size={18} />
-                <span>Connect Microphone</span>
-              </button>
-            </motion.div>
-          )}
-
-          {/* Connecting State */}
-          {status === 'connecting' && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="glass-panel p-6 rounded-3xl text-center max-w-xs w-full shadow-lg pointer-events-auto flex flex-col items-center"
-            >
-              <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
-              <p className="text-sm font-semibold text-slate-700">Requesting microphone access...</p>
-            </motion.div>
-          )}
-
-          {/* Error Screen */}
-          {status === 'error' && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="glass-panel p-6 rounded-3xl text-center max-w-md w-full mx-4 shadow-xl border-l-4 border-l-rose-500 pointer-events-auto flex flex-col items-center"
-            >
-              <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mb-4">
-                <AlertTriangle className="text-rose-500" size={24} />
-              </div>
-              <h2 className="text-lg font-bold text-slate-800 mb-1.5">Microphone Blocked</h2>
-              <p className="text-sm text-slate-500 mb-5 leading-relaxed">
-                {error || 'Microphone access is required. Please check system preferences or click the camera/microphone icon in the address bar.'}
-              </p>
-              <button
-                onClick={connectMicrophone}
-                className="py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs tracking-wide shadow transition-all duration-200 cursor-pointer flex items-center space-x-1.5"
-              >
-                <RotateCcw size={14} />
-                <span>Retry Connection</span>
-              </button>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
-      </div>
+      <DashboardHeader 
+        theme={theme}
+        setTheme={setTheme}
+        environmentType={environmentType}
+        setEnvironmentType={setEnvironmentType}
+        showHelp={showHelp}
+        setShowHelp={setShowHelp}
+        status={status}
+        isMuted={isMuted}
+        toggleMute={toggleMute}
+        disconnectMicrophone={disconnectMicrophone}
+      />
 
       {/* ---------------- CENTER RIGHT / DYNAMIC CUSTOMIZER ---------------- */}
-      <div className="absolute right-4 top-24 pointer-events-auto flex flex-col items-end space-y-4">
-        <AnimatePresence>
-          {activeDesk !== null && (
-            <motion.div
-              initial={{ opacity: 0, x: 50, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 50, scale: 0.95 }}
-              className="glass-panel p-5 rounded-2.5xl shadow-lg border border-white max-w-[285px] w-full flex flex-col space-y-4"
-            >
-              <div className="flex items-center space-x-2 text-indigo-700">
-                <Sparkles size={16} className="animate-pulse" />
-                <h3 className="text-xs font-extrabold uppercase tracking-wider">Customize Desk #{activeDesk + 1}</h3>
-              </div>
-
-              {/* Chair Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Chair Cushion</span>
-                <div className="flex space-x-1.5">
-                  {['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { chairColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.chairColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Lamp Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Desk Lamp Glow</span>
-                <div className="flex space-x-1.5">
-                  {['#f43f5e', '#06b6d4', '#eab308', '#22c55e', '#a855f7'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { lampColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.lampColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Mug Color Picker */}
-              <div className="flex flex-col space-y-1.5">
-                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Beverage Mug</span>
-                <div className="flex space-x-1.5">
-                  {['#ef4444', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => updateDesk(activeDesk, { mugColor: c })}
-                      style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-full border-2 transition-all duration-200 cursor-pointer ${
-                        desks[activeDesk]?.mugColor === c ? 'border-indigo-600 scale-110 shadow-sm' : 'border-transparent hover:scale-105'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="text-[9px] text-slate-400 font-bold text-center leading-normal">
-                💡 Tip: Click your coffee mug to take a sip!
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <CustomizerPanel 
+        activeDesk={activeDesk}
+        desks={desks}
+        updateDesk={updateDesk}
+        outfit={outfit}
+        setOutfit={setOutfit}
+      />
 
       {/* ---------------- BOTTOM BAR / DASHBOARD OVERLAY ---------------- */}
       <div className="w-full flex flex-col md:flex-row justify-between items-stretch md:items-end space-y-4 md:space-y-0 md:space-x-4 pointer-events-none">
         
-        {/* Left column: Help and Focus Audio */}
+        {/* Left column: Focus Audio */}
+        <div className="flex flex-col space-y-3.5 w-full max-w-sm">
+          {/* Focus Soundscapes Panel */}
+          <FocusSoundscapes 
+            activeSoundscape={activeSoundscape}
+            onToggleSoundscape={handleToggleSoundscape}
+            ytUrl={ytUrl}
+            setYtUrl={setYtUrl}
+            ytVolume={ytVolume}
+            onYtVolumeChange={handleYtVolumeChange}
+            isYtPlaying={isYtPlaying}
+            onToggleYtPlay={handleToggleYtPlay}
+            onAddTrack={handleAddTrack}
+            playlist={playlist}
+            currentTrackIndex={currentTrackIndex}
+            onRemoveTrack={handleRemoveTrack}
+            onPlayTrack={playTrack}
+            onSkipTrack={handleSkipTrack}
+          />
+        </div>
+
+        {/* Right column: Help/Guide and Live Audio Visualizer */}
         <div className="flex flex-col space-y-3.5 w-full max-w-sm">
           {/* Help/Guide Panel */}
           <AnimatePresence>
-            {showHelp && (
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md pointer-events-auto border border-white"
-              >
-                <div className="flex items-center space-x-2 text-indigo-700 mb-2.5">
-                  <Sparkles size={18} className="animate-pulse" />
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider">How to interact:</h3>
-                </div>
-                <ul className="space-y-2 text-xs text-slate-600 font-medium leading-relaxed">
-                  <li className="flex items-start">
-                    <span className="text-indigo-500 mr-2">🗣️</span>
-                    <span>Speak normally to make the character's head bob and desk lamps pulse to your voice.</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-indigo-500 mr-2">🎉</span>
-                    <span>Shout or clap loudly to launch floating emoji particles above their head!</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-indigo-500 mr-2">🪑</span>
-                    <span>Click on any empty desk chair to sit and work. Click on your coffee mug to sip.</span>
-                  </li>
-                </ul>
-              </motion.div>
-            )}
+            <HelpPanel showHelp={showHelp} />
           </AnimatePresence>
 
-          {/* Focus Soundscapes Panel */}
-          <div className="glass-panel p-4 md:p-5 rounded-2xl w-full shadow-md pointer-events-auto border border-white">
-            <div className="flex items-center space-x-2 text-indigo-700 mb-2.5">
-              <Volume2 size={18} className="animate-pulse" />
-              <h3 className="text-xs font-extrabold uppercase tracking-wider">Focus Ambient Soundscapes</h3>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'rain', label: '🌧️ Rain' },
-                { id: 'wind', label: '🍃 Wind' },
-                { id: 'bells', label: '🔔 Bells' }
-              ].map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    const ctx = getAudioContext();
-                    if (activeSoundscape === s.id) {
-                      stopAllSoundscapes();
-                    } else {
-                      stopAllSoundscapes();
-                      setActiveSoundscape(s.id);
-                      if (s.id === 'rain') startRain(ctx);
-                      else if (s.id === 'wind') startWind(ctx);
-                      else if (s.id === 'bells') startBells(ctx);
-                    }
-                  }}
-                  className={`py-2.5 px-1.5 text-xs font-extrabold rounded-xl transition-all duration-300 border cursor-pointer flex flex-col items-center justify-center space-y-1.5 ${
-                    activeSoundscape === s.id
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-md transform scale-105'
-                      : 'bg-white/50 text-slate-600 border-slate-200/50 hover:bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <span>{s.label}</span>
-                  <span className="text-[9px] font-bold opacity-80">
-                    {activeSoundscape === s.id ? 'Playing' : 'Play'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Live Audio Visualizer Corner Console */}
+          <MicrophoneConsole 
+            status={status}
+            error={error}
+            connectMicrophone={connectMicrophone}
+            currentVolumeValue={currentVolumeValue}
+            visualizerCanvasRef={visualizerCanvasRef}
+          />
         </div>
-
-        {/* Live Audio Visualizer Corner Console (Right Column) */}
-        {status === 'connected' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-panel p-4 md:p-5 rounded-2xl max-w-xs w-full shadow-md pointer-events-auto flex flex-col space-y-3.5 border border-white"
-          >
-            {/* Visualizer Canvas */}
-            <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <div className="flex items-center space-x-1.5 text-indigo-700">
-                  <Volume2 size={16} />
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider">Live Input</span>
-                </div>
-                <span className="text-[10px] font-bold text-slate-400">16-Band Frequency</span>
-              </div>
-              <canvas 
-                ref={visualizerCanvasRef} 
-                className="w-full h-14 bg-slate-900/5 rounded-xl border border-slate-200/50" 
-              />
-            </div>
-
-            {/* Volume Decibel/RMS bar */}
-            <div>
-              <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold mb-1">
-                <span>Mic Level Gauge</span>
-                <span className="font-mono">{Math.round(currentVolumeValue * 100)}%</span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/40">
-                <div 
-                  className={`h-full rounded-full transition-all duration-75 ${getVolumeMeterColor(currentVolumeValue)} shadow-sm`}
-                  style={{ width: `${currentVolumeValue * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Micro Indicator of Shout Threshold */}
-            <div className="flex justify-between items-center text-[9px] text-slate-400 font-medium">
-              <span className="flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1" /> Talking Range
-              </span>
-              <span className="flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1" /> Emoji Shout Trigger (&gt;45%)
-              </span>
-            </div>
-          </motion.div>
-        )}
       </div>
 
+      {/* Hidden container for YouTube Player API iframe */}
+      <div id="yt-player-placeholder" className="absolute w-[1px] h-[1px] opacity-0 pointer-events-none" />
     </div>
   );
 };

@@ -1,369 +1,67 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
-import { useAudioAnalyzer } from '../context/AudioAnalyzerContext';
 import { Colleague } from './Colleague';
+import { OfficeDesk } from './OfficeDesk';
 import type { DeskConfig } from './OfficeScene';
 
-interface OfficeDeskProps {
-  id: number;
-  position: [number, number, number];
-  rotationY?: number;
-  hasLaptop?: boolean;
-  hasLamp?: boolean;
-  hasPlant?: boolean;
-  hasMug?: boolean;
-  hasChair?: boolean;
-  chairColor?: string;
-  lampColor?: string;
-  mugColor?: string;
-  deskColor?: string;
-  laptopColor?: string;
-  glowColor?: string;
-  lightIntensity?: number;
-  onSelect: (id: number) => void;
-  // Creative properties
-  activeDesk: number | null;
-  triggerSip: (deskPosition: [number, number, number]) => void;
-  theme: 'day' | 'sunset' | 'night';
-}
+// --- Shared Floor / Wall Geometries ---
+const SUB_FLOOR_GEO = new THREE.BoxGeometry(14.8, 0.1, 10.4);
+const FLOOR_PLANK_GEO = new THREE.BoxGeometry(0.38, 0.01, 10.4);
+const RUG_GEO = new THREE.CylinderGeometry(1.4, 1.4, 0.01, 16); // 16 segments is enough
+const SKIRTING_LEFT_GEO = new THREE.BoxGeometry(0.04, 0.16, 10.4);
+const SKIRTING_BACK_GEO = new THREE.BoxGeometry(14.8, 0.16, 0.04);
+const WALL_LEFT_GEO = new THREE.BoxGeometry(0.04, 2.5, 10.4);
+const WALL_BACK_GEO = new THREE.BoxGeometry(14.8, 2.5, 0.04);
 
-// Reusable desk component with mouse hover effects, click-to-select interaction, and audio-reactivity
-const OfficeDesk: React.FC<OfficeDeskProps> = ({
-  id,
-  position,
-  rotationY = 0,
-  hasLaptop = true,
-  hasLamp = false,
-  hasPlant = false,
-  hasMug = false,
-  hasChair = true,
-  chairColor = '#cb8a58',
-  lampColor = '#f43f5e',
-  mugColor = '#06b6d4',
-  deskColor = '#fadaaf',
-  laptopColor = '#94a3b8',
-  glowColor = '#bae6fd',
-  lightIntensity = 3.2,
-  onSelect,
-  activeDesk,
-  triggerSip,
-  theme
-}) => {
-  const [hovered, setHovered] = useState(false);
-  const analyzer = useAudioAnalyzer();
+const HangingLamp: React.FC<{ position: [number, number, number]; theme: string }> = ({ position, theme }) => {
+  const isNight = theme === 'night';
+  const isSunset = theme === 'sunset';
 
-  // Dynamic light & material references
-  const lampLightRef = useRef<THREE.PointLight>(null);
-  const laptopLightRef = useRef<THREE.SpotLight>(null);
-  const laptopMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  let bulbColor = '#475569';
+  if (isNight) bulbColor = '#fef08a';
+  else if (isSunset) bulbColor = '#fdba74';
 
-  // Soft glow color when hover is active
-  const activeDeskColor = hovered ? '#ffe4c4' : deskColor;
+  return (
+    <group position={position}>
+      {/* Cord */}
+      <mesh position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.01, 0.01, 0.6, 4]} />
+        <meshStandardMaterial color="#0f172a" />
+      </mesh>
+      {/* Shade */}
+      <mesh position={[0, 0.02, 0]}>
+        <coneGeometry args={[0.2, 0.12, 8]} />
+        <meshStandardMaterial color="#1e293b" roughness={0.4} />
+      </mesh>
+      {/* Bulb */}
+      <mesh position={[0, -0.06, 0]}>
+        <sphereGeometry args={[0.06, 8, 8]} />
+        <meshBasicMaterial color={bulbColor} />
+      </mesh>
+    </group>
+  );
+};
 
-  // Real-time audio reactive animations
-  useFrame(() => {
-    const isActive = id === activeDesk;
-    const rawVolume = (isActive && analyzer.status === 'connected') ? analyzer.getVolume() : 0;
-    const volume = isNaN(rawVolume) || rawVolume === undefined ? 0 : rawVolume;
+const WallLamp: React.FC<{ position: [number, number, number]; rotationY?: number; theme: string }> = ({ position, rotationY = 0, theme }) => {
+  const isNight = theme === 'night';
+  const isSunset = theme === 'sunset';
 
-    // Smooth lerping of light intensity
-    if (lampLightRef.current) {
-      const targetIntensity = lightIntensity + volume * 5.5;
-      lampLightRef.current.intensity = THREE.MathUtils.lerp(
-        lampLightRef.current.intensity,
-        targetIntensity,
-        0.3
-      );
-    }
-
-    if (laptopLightRef.current) {
-      const targetIntensity = 0.8 + volume * 4.0;
-      laptopLightRef.current.intensity = THREE.MathUtils.lerp(
-        laptopLightRef.current.intensity,
-        targetIntensity,
-        0.3
-      );
-    }
-
-    if (laptopMaterialRef.current) {
-      const baseEmissiveIntensity = theme === 'night' ? 1.4 : 0.5;
-      const targetEmissive = baseEmissiveIntensity + volume * 3.5;
-      laptopMaterialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
-        laptopMaterialRef.current.emissiveIntensity,
-        targetEmissive,
-        0.3
-      );
-    }
-  });
-
-  // Dynamic theme colors for lamps and screen glow
-  const getDynamicGlowColor = () => {
-    if (glowColor && glowColor !== '#bae6fd') return glowColor;
-    switch (theme) {
-      case 'sunset':
-        return '#fecdd3'; // warm peach screen
-      case 'night':
-        return '#a78bfa'; // neon violet screen
-      case 'day':
-      default:
-        return '#bae6fd'; // soft blue
-    }
-  };
-
-  const getDynamicLampColor = () => {
-    if (lampColor && lampColor !== '#f43f5e' && lampColor !== '#06b6d4') return lampColor;
-    switch (theme) {
-      case 'sunset':
-        return '#f97316'; // warm orange lamp
-      case 'night':
-        return '#f43f5e'; // glowing rose lamp
-      case 'day':
-      default:
-        return lampColor || '#f43f5e';
-    }
-  };
-
-  const activeGlowColor = getDynamicGlowColor();
-  const activeLampColor = getDynamicLampColor();
+  let tubeColor = '#475569';
+  if (isNight) tubeColor = '#fef08a';
+  else if (isSunset) tubeColor = '#fdba74';
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      
-      {/* ---------------- THE DESK ---------------- */}
-      {/* Desk Top - Clickable and triggers pointer hover styles */}
-      <mesh 
-        position={[0, 0.82, 0]} 
-        castShadow 
-        receiveShadow
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={(e) => {
-          e.stopPropagation();
-          setHovered(false);
-          document.body.style.cursor = 'auto';
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect(id);
-        }}
-      >
-        <boxGeometry args={[1.8, 0.06, 1.0]} />
-        <meshStandardMaterial color={activeDeskColor} roughness={0.4} />
+      {/* Backplate mount */}
+      <mesh castShadow>
+        <boxGeometry args={[0.9, 0.06, 0.04]} />
+        <meshStandardMaterial color="#334155" roughness={0.6} />
       </mesh>
-
-      {/* Desk Drawer cabinet under the desk */}
-      <group position={[0.6, 0.41, 0.05]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[0.36, 0.76, 0.75]} />
-          <meshStandardMaterial color="#f8fafc" roughness={0.7} />
-        </mesh>
-        <mesh position={[0, 0.22, 0.38]}>
-          <boxGeometry args={[0.3, 0.2, 0.01]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.6} />
-        </mesh>
-        <mesh position={[0, -0.15, 0.38]}>
-          <boxGeometry args={[0.3, 0.4, 0.01]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.6} />
-        </mesh>
-        <mesh position={[0, 0.22, 0.39]}>
-          <boxGeometry args={[0.07, 0.02, 0.02]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-        <mesh position={[0, -0.15, 0.39]}>
-          <boxGeometry args={[0.07, 0.02, 0.02]} />
-          <meshStandardMaterial color="#1e293b" />
-        </mesh>
-      </group>
-
-      {/* Desk Legs */}
-      <group position={[-0.75, 0.39, 0]}>
-        <mesh position={[0, 0, 0.4]} castShadow>
-          <cylinderGeometry args={[0.025, 0.025, 0.78, 8]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0, -0.4]} castShadow>
-          <cylinderGeometry args={[0.025, 0.025, 0.78, 8]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0.37, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.02, 0.02, 0.8, 8]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.4} />
-        </mesh>
-      </group>
-
-      {/* ---------------- LAPTOP ---------------- */}
-      {hasLaptop && (
-        <group position={[0, 0.85, -0.05]} rotation={[0, Math.PI, 0]}>
-          <mesh position={[0, 0.01, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.38, 0.015, 0.26]} />
-            <meshStandardMaterial color={laptopColor} roughness={0.3} metalness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.019, 0.01]}>
-            <boxGeometry args={[0.33, 0.005, 0.14]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.019, 0.09]}>
-            <boxGeometry args={[0.09, 0.002, 0.05]} />
-            <meshStandardMaterial color="#78889b" roughness={0.5} />
-          </mesh>
-          <group position={[0, 0.015, -0.125]} rotation={[-0.3, 0, 0]}>
-            <mesh position={[0, 0.12, -0.005]} castShadow>
-              <boxGeometry args={[0.38, 0.25, 0.01]} />
-              <meshStandardMaterial color={laptopColor} roughness={0.3} metalness={0.8} />
-            </mesh>
-            <mesh position={[0, 0.12, 0.001]}>
-              <boxGeometry args={[0.35, 0.22, 0.002]} />
-              <meshStandardMaterial 
-                ref={laptopMaterialRef}
-                color={activeGlowColor} 
-                emissive={activeGlowColor} 
-                emissiveIntensity={theme === 'night' ? 1.4 : 0.5} 
-                roughness={0.1} 
-              />
-            </mesh>
-            <spotLight
-              ref={laptopLightRef}
-              position={[0, 0.12, 0.05]}
-              angle={0.8}
-              penumbra={0.5}
-              intensity={0.8}
-              distance={1.2}
-              color={activeGlowColor}
-              target-position={[0, 0.2, 0.4]}
-            />
-          </group>
-        </group>
-      )}
-
-      {/* ---------------- GLOWING DESK LAMP ---------------- */}
-      {hasLamp && (
-        <group position={[-0.6, 0.85, -0.25]}>
-          <mesh position={[0, 0.01, 0]} castShadow>
-            <cylinderGeometry args={[0.08, 0.08, 0.02, 12]} />
-            <meshStandardMaterial color={activeLampColor} roughness={0.4} />
-          </mesh>
-          <mesh position={[0, 0.18, 0]} castShadow>
-            <cylinderGeometry args={[0.012, 0.012, 0.36, 8]} />
-            <meshStandardMaterial color="#475569" roughness={0.3} />
-          </mesh>
-          <group position={[0, 0.35, 0.06]} rotation={[0.4, 0, 0]}>
-            <mesh castShadow>
-              <coneGeometry args={[0.1, 0.16, 16]} />
-              <meshStandardMaterial color={activeLampColor} roughness={0.4} />
-            </mesh>
-            <mesh position={[0, -0.05, 0]}>
-              <sphereGeometry args={[0.04, 8, 8]} />
-              <meshBasicMaterial color={theme === 'night' ? activeLampColor : '#fef08a'} />
-            </mesh>
-            <pointLight
-              ref={lampLightRef}
-              position={[0, -0.08, 0]}
-              intensity={lightIntensity}
-              distance={2.5}
-              decay={1.8}
-              color={theme === 'night' ? activeLampColor : '#fef08a'}
-              castShadow
-              shadow-bias={-0.001}
-              shadow-mapSize-width={256}
-              shadow-mapSize-height={256}
-            />
-          </group>
-        </group>
-      )}
-
-      {/* ---------------- POTTED PLANT ---------------- */}
-      {hasPlant && (
-        <group position={[0.62, 0.85, -0.28]}>
-          <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.09, 0.06, 0.16, 10]} />
-            <meshStandardMaterial color="#ea580c" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.155, 0]}>
-            <cylinderGeometry args={[0.08, 0.08, 0.01, 8]} />
-            <meshStandardMaterial color="#451a03" roughness={0.9} />
-          </mesh>
-          <group position={[0, 0.2, 0]}>
-            <mesh position={[0, 0.08, 0]} castShadow>
-              <sphereGeometry args={[0.11, 8, 8]} />
-              <meshStandardMaterial color="#16a34a" roughness={0.9} />
-            </mesh>
-            <mesh position={[0.06, 0.04, 0.03]} castShadow>
-              <sphereGeometry args={[0.09, 8, 8]} />
-              <meshStandardMaterial color="#15803d" roughness={0.9} />
-            </mesh>
-            <mesh position={[-0.05, 0.05, -0.04]} castShadow>
-              <sphereGeometry args={[0.1, 8, 8]} />
-              <meshStandardMaterial color="#22c55e" roughness={0.9} />
-            </mesh>
-          </group>
-        </group>
-      )}
-
-      {/* ---------------- BEVERAGE MUG ---------------- */}
-      {hasMug && (
-        <group 
-          position={[-0.3, 0.85, -0.15]}
-          onPointerOver={(e) => {
-            if (id === activeDesk) {
-              e.stopPropagation();
-              document.body.style.cursor = 'pointer';
-            }
-          }}
-          onPointerOut={(e) => {
-            if (id === activeDesk) {
-              e.stopPropagation();
-              document.body.style.cursor = 'auto';
-            }
-          }}
-          onClick={(e) => {
-            if (id === activeDesk) {
-              e.stopPropagation();
-              triggerSip(position);
-            }
-          }}
-        >
-          <mesh position={[0, 0.05, 0]} castShadow>
-            <cylinderGeometry args={[0.045, 0.045, 0.1, 10]} />
-            <meshStandardMaterial color={mugColor} roughness={0.4} />
-          </mesh>
-          <mesh position={[0.035, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[0.025, 0.008, 6, 12, Math.PI]} />
-            <meshStandardMaterial color={mugColor} roughness={0.4} />
-          </mesh>
-          <mesh position={[0, 0.095, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.004, 8]} />
-            <meshStandardMaterial color="#7c2d12" roughness={0.6} />
-          </mesh>
-        </group>
-      )}
-
-      {/* ---------------- CHAIR (Empty decorative chair) ---------------- */}
-      {hasChair && (
-        <group position={[0, 0, -0.4]}>
-          <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.035, 0.035, 0.4, 8]} />
-            <meshStandardMaterial color="#2d3748" roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.45, 0.04, 0.45]} />
-            <meshStandardMaterial color="#1a202c" roughness={0.6} />
-          </mesh>
-          <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.58, 0.07, 0.58]} />
-            <meshStandardMaterial color={chairColor} roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.8, -0.25]} castShadow>
-            <boxGeometry args={[0.5, 0.52, 0.07]} />
-            <meshStandardMaterial color={chairColor} roughness={0.7} />
-          </mesh>
-        </group>
-      )}
-
+      {/* Horizontal Fluorescent/LED Light Tube */}
+      <mesh position={[0, 0, 0.035]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.016, 0.016, 0.82, 8]} />
+        <meshBasicMaterial color={tubeColor} />
+      </mesh>
     </group>
   );
 };
@@ -375,6 +73,7 @@ interface IsometricRoomProps {
   desks: DeskConfig[];
   theme: 'day' | 'sunset' | 'night';
   triggerSip: (deskPosition: [number, number, number]) => void;
+  npcChatMessages: Record<number, string | null>;
 }
 
 export const IsometricRoom: React.FC<IsometricRoomProps> = ({ 
@@ -383,284 +82,436 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
   onSelectFloor,
   desks,
   theme,
-  triggerSip
+  triggerSip,
+  npcChatMessages
 }) => {
   // Theme-dependent plank palettes
   const getPlankPalette = () => {
     switch (theme) {
       case 'sunset':
-        return [
-          '#fda4af', // warm pink-rose
-          '#fca5a5',
-          '#fdba74', // warm orange
-          '#fed7aa',
-          '#ffe4e6',
-        ];
+        return ['#cb8a58', '#b57c5d', '#8c583c', '#dca87a', '#704028'];
       case 'night':
-        return [
-          '#1e293b', // dark slate
-          '#334155',
-          '#0f172a',
-          '#1e1b4b', // deep neon-dark indigo
-          '#111827',
-        ];
-      case 'day':
-      default:
-        return [
-          '#fadaaf', // cream wood
-          '#fedebb',
-          '#f6d2a2',
-          '#fadeb5',
-          '#f5ce9f',
-          '#fae1b9'
-        ];
+        return ['#1e293b', '#0f172a', '#334155', '#475569', '#020617'];
+      default: // day
+        return ['#e2e8f0', '#cbd5e1', '#94a3b8', '#f1f5f9', '#64748b'];
     }
   };
 
-  const planksPalette = getPlankPalette();
-
-  const getWallColor = () => {
+  const getThemeRugColor = () => {
     switch (theme) {
-      case 'sunset':
-        return '#fecdd3'; // warm sunset rose-200
-      case 'night':
-        return '#13132b'; // cyber night deep indigo
-      case 'day':
-      default:
-        return '#ffffff';
+      case 'sunset': return '#be123c';
+      case 'night': return '#1e1b4b';
+      default: return '#3b82f6';
     }
   };
 
-  const wallColor = getWallColor();
-
-  const getRugColor = () => {
+  const getThemeWallColor = () => {
     switch (theme) {
-      case 'sunset':
-        return '#fda4af';
-      case 'night':
-        return '#f43f5e'; // glowing red/pink
-      case 'day':
-      default:
-        return '#e9d5ff';
+      case 'sunset': return '#fda4af';
+      case 'night': return '#312e81';
+      default: return '#f1f5f9';
     }
   };
 
-  const rugColor = getRugColor();
-
-  const getSkirtingColor = () => {
+  const getThemeSkirtingColor = () => {
     switch (theme) {
-      case 'sunset':
-        return '#fda4af';
-      case 'night':
-        return '#0f172a';
-      case 'day':
-      default:
-        return '#cbd5e1';
+      case 'sunset': return '#e11d48';
+      case 'night': return '#4338ca';
+      default: return '#64748b';
     }
   };
 
-  const skirtingColor = getSkirtingColor();
-
-  const getTextColor = () => {
+  const getThemePlantPotColor = () => {
     switch (theme) {
-      case 'sunset':
-        return '#831843';
-      case 'night':
-        return '#f472b6'; // glowing neon pink text
-      case 'day':
-      default:
-        return '#312e81';
+      case 'sunset': return '#b57c5d';
+      case 'night': return '#1e293b';
+      default: return '#b57c5d';
     }
   };
 
-  const outlineColor = theme === 'night' ? '#1e1b4b' : '#ffffff';
+  const getThemePlantLeafColor = () => {
+    switch (theme) {
+      case 'sunset': return '#2e7d32';
+      case 'night': return '#065f46';
+      default: return '#2e7d32';
+    }
+  };
 
-  const totalPlanks = 37;
-  const plankSpacing = 0.4;
-  const plankWidth = 0.38;
+  const palette = getPlankPalette();
+  const wallColor = getThemeWallColor();
+  const skirtingColor = getThemeSkirtingColor();
 
   return (
     <group>
-      {/* ---------------- FLOOR (Cream Wood Planks) ---------------- */}
-      <group>
-        {/* Sub-floor platform */}
-        <mesh position={[0, -0.05, 0]} receiveShadow>
-          <boxGeometry args={[14.8, 0.1, 8.4]} />
-          <meshStandardMaterial color={theme === 'night' ? '#1e293b' : '#d1d5db'} roughness={1.0} />
-        </mesh>
+      {/* ---------------- SUB-FLOOR (Holds shadows and serves as base) ---------------- */}
+      <mesh receiveShadow position={[0, -0.05, 0]} geometry={SUB_FLOOR_GEO}>
+        <meshStandardMaterial color={theme === 'night' ? '#090d16' : '#d1d5db'} roughness={0.9} />
+      </mesh>
 
-        {/* Floor Planks - Clickable to walk */}
-        {Array.from({ length: totalPlanks }).map((_, i) => {
-          const x = -7.4 + plankSpacing / 2 + i * plankSpacing;
-          const color = planksPalette[i % planksPalette.length];
-          return (
-            <mesh 
-              key={i} 
-              position={[x, 0.005, 0]} 
-              receiveShadow 
-              castShadow
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = 'pointer';
-              }}
-              onPointerOut={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = 'auto';
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectFloor(e.point);
-              }}
-            >
-              <boxGeometry args={[plankWidth, 0.01, 8.4]} />
-              <meshStandardMaterial color={color} roughness={0.75} />
-            </mesh>
-          );
-        })}
+      {/* ---------------- FLOOR PLANKS ---------------- */}
+      {Array.from({ length: 39 }).map((_, index) => {
+        const xOffset = -7.22 + index * 0.38;
+        const color = palette[index % palette.length];
+        return (
+          <mesh 
+            key={index}
+            receiveShadow 
+            position={[xOffset, 0.005, 0]} 
+            geometry={FLOOR_PLANK_GEO}
+          >
+            <meshStandardMaterial color={color} roughness={0.8} />
+          </mesh>
+        );
+      })}
+
+      {/* ---------------- RUG (Centered visual element) ---------------- */}
+      <mesh receiveShadow position={[0, 0.012, 0]} rotation={[0, 0, 0]} geometry={RUG_GEO}>
+        <meshStandardMaterial color={getThemeRugColor()} roughness={0.95} />
+      </mesh>
+
+      {/* ---------------- WALLS & SKIRTING ---------------- */}
+      {/* Left Wall */}
+      <mesh castShadow receiveShadow position={[-7.42, 1.25, 0]} geometry={WALL_LEFT_GEO}>
+        <meshStandardMaterial color={wallColor} roughness={0.9} />
+      </mesh>
+      {/* Left Skirting */}
+      <mesh castShadow position={[-7.4, 0.08, 0]} geometry={SKIRTING_LEFT_GEO}>
+        <meshStandardMaterial color={skirtingColor} roughness={0.7} />
+      </mesh>
+
+      {/* Back Wall */}
+      <mesh castShadow receiveShadow position={[0, 1.25, -5.22]} geometry={WALL_BACK_GEO}>
+        <meshStandardMaterial color={wallColor} roughness={0.9} />
+      </mesh>
+      {/* Back Skirting */}
+      <mesh castShadow position={[0, 0.08, -5.2]} geometry={SKIRTING_BACK_GEO}>
+        <meshStandardMaterial color={skirtingColor} roughness={0.7} />
+      </mesh>
+
+      {/* ---------------- WALL DECOR ---------------- */}
+      <group position={[-2.0, 1.55, -5.16]}>
+        {/* Whiteboard */}
+        <mesh castShadow position={[0, 0, -0.01]}>
+          <boxGeometry args={[2.5, 0.9, 0.018]} />
+          <meshStandardMaterial color="#475569" roughness={0.55} />
+        </mesh>
+        <mesh castShadow position={[0, 0, 0.018]}>
+          <boxGeometry args={[2.35, 0.78, 0.035]} />
+          <meshStandardMaterial color={theme === 'night' ? '#dbeafe' : '#f8fafc'} roughness={0.35} />
+        </mesh>
+        <mesh position={[-0.62, 0.16, 0.05]}>
+          <boxGeometry args={[0.46, 0.05, 0.012]} />
+          <meshBasicMaterial color="#38bdf8" />
+        </mesh>
+        <mesh position={[0.05, 0.02, 0.05]}>
+          <boxGeometry args={[0.72, 0.05, 0.012]} />
+          <meshBasicMaterial color="#22c55e" />
+        </mesh>
+        <mesh position={[0.58, -0.16, 0.05]}>
+          <boxGeometry args={[0.42, 0.05, 0.012]} />
+          <meshBasicMaterial color="#f97316" />
+        </mesh>
       </group>
 
-      {/* Rug under the main player's starting area - Clickable to walk */}
+      <group position={[-5.25, 1.42, -5.16]}>
+        {/* Wall shelf */}
+        <mesh castShadow>
+          <boxGeometry args={[1.35, 0.08, 0.18]} />
+          <meshStandardMaterial color="#8b5a2b" roughness={0.65} />
+        </mesh>
+        {['#2563eb', '#f97316', '#10b981', '#e11d48', '#facc15'].map((color, index) => (
+          <mesh key={color} castShadow position={[-0.45 + index * 0.22, 0.18, 0.02]}>
+            <boxGeometry args={[0.13, 0.38 + (index % 2) * 0.08, 0.12]} />
+            <meshStandardMaterial color={color} roughness={0.55} />
+          </mesh>
+        ))}
+        <mesh castShadow position={[0.54, 0.18, 0.02]}>
+          <boxGeometry args={[0.28, 0.28, 0.12]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.45} />
+        </mesh>
+      </group>
+
+      <group position={[5.65, 1.65, -5.16]}>
+        {/* Framed wall art */}
+        <mesh castShadow>
+          <boxGeometry args={[0.86, 1.05, 0.035]} />
+          <meshStandardMaterial color="#334155" roughness={0.55} />
+        </mesh>
+        <mesh position={[0, 0, 0.025]}>
+          <boxGeometry args={[0.68, 0.86, 0.014]} />
+          <meshBasicMaterial color={theme === 'sunset' ? '#fbbf24' : theme === 'night' ? '#38bdf8' : '#93c5fd'} />
+        </mesh>
+        <mesh position={[-0.13, 0.06, 0.04]} rotation={[0, 0, Math.PI / 4]}>
+          <boxGeometry args={[0.38, 0.18, 0.012]} />
+          <meshBasicMaterial color={theme === 'sunset' ? '#ea580c' : '#10b981'} />
+        </mesh>
+      </group>
+
+      <group position={[-7.35, 1.82, -2.75]} rotation={[0, Math.PI / 2, 0]}>
+        {/* Clock */}
+        <mesh castShadow>
+          <circleGeometry args={[0.38, 28]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 0, 0.018]}>
+          <ringGeometry args={[0.34, 0.39, 28]} />
+          <meshStandardMaterial color="#475569" roughness={0.5} />
+        </mesh>
+        <mesh position={[0.04, 0.08, 0.03]} rotation={[0, 0, -0.55]}>
+          <boxGeometry args={[0.035, 0.26, 0.012]} />
+          <meshBasicMaterial color="#0f172a" />
+        </mesh>
+        <mesh position={[0.08, -0.03, 0.03]} rotation={[0, 0, -1.35]}>
+          <boxGeometry args={[0.03, 0.2, 0.012]} />
+          <meshBasicMaterial color="#0f172a" />
+        </mesh>
+      </group>
+
+      <group position={[-7.35, 1.36, 0.35]} rotation={[0, Math.PI / 2, 0]}>
+        {/* Sticky note board */}
+        <mesh castShadow>
+          <boxGeometry args={[1.05, 0.72, 0.035]} />
+          <meshStandardMaterial color="#92400e" roughness={0.75} />
+        </mesh>
+        {[
+          ['#fef08a', -0.28, 0.16],
+          ['#bfdbfe', 0.18, 0.12],
+          ['#bbf7d0', -0.06, -0.18],
+        ].map(([color, x, y]) => (
+          <mesh key={`${color}-${x}`} position={[Number(x), Number(y), 0.03]}>
+            <boxGeometry args={[0.28, 0.22, 0.012]} />
+            <meshBasicMaterial color={String(color)} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* ---------------- DOORWAY ---------------- */}
+      <group position={[-7.41, 1.05, 2.2]} rotation={[0, Math.PI / 2, 0]}>
+        {/* Frame */}
+        <mesh castShadow position={[-0.47, 0, 0]}>
+          <boxGeometry args={[0.08, 2.1, 0.08]} />
+          <meshStandardMaterial color="#475569" roughness={0.6} />
+        </mesh>
+        <mesh castShadow position={[0.47, 0, 0]}>
+          <boxGeometry args={[0.08, 2.1, 0.08]} />
+          <meshStandardMaterial color="#475569" roughness={0.6} />
+        </mesh>
+        <mesh castShadow position={[0, 1.02, 0]}>
+          <boxGeometry args={[1.02, 0.08, 0.08]} />
+          <meshStandardMaterial color="#475569" roughness={0.6} />
+        </mesh>
+        {/* Door */}
+        <mesh castShadow position={[0, -0.02, -0.04]}>
+          <boxGeometry args={[0.78, 1.98, 0.04]} />
+          <meshStandardMaterial color="#cb8a58" roughness={0.7} />
+        </mesh>
+        <mesh castShadow position={[0.24, -0.04, -0.08]}>
+          <sphereGeometry args={[0.035, 8, 8]} />
+          <meshStandardMaterial color="#facc15" metalness={0.4} roughness={0.35} />
+        </mesh>
+      </group>
+
+      {/* ---------------- WINDOWS (Glows based on theme time) ---------------- */}
+      <group position={[3.2, 1.45, -5.21]}>
+        {/* Frame */}
+        <mesh castShadow>
+          <boxGeometry args={[2.5, 1.3, 0.06]} />
+          <meshStandardMaterial color="#475569" roughness={0.5} />
+        </mesh>
+        {/* Glass Glow */}
+        <mesh position={[0, 0, 0.02]}>
+          <boxGeometry args={[2.3, 1.1, 0.01]} />
+          <meshBasicMaterial 
+            color={theme === 'day' ? '#bae6fd' : theme === 'sunset' ? '#fecdd3' : '#1e1b4b'} 
+          />
+        </mesh>
+      </group>
+
+      {/* ---------------- DECORATIVE OFFICE PLANTS ---------------- */}
+      {/* Left Back Corner Plant */}
+      <group position={[-6.5, 0.01, -4.4]}>
+        {/* Pot */}
+        <mesh castShadow position={[0, 0.28, 0]}>
+          <cylinderGeometry args={[0.26, 0.18, 0.56, 12]} />
+          <meshStandardMaterial color={getThemePlantPotColor()} roughness={0.8} />
+        </mesh>
+        {/* Plant Base Dirt */}
+        <mesh position={[0, 0.56, 0]}>
+          <cylinderGeometry args={[0.24, 0.24, 0.02, 12]} />
+          <meshStandardMaterial color="#332211" roughness={0.9} />
+        </mesh>
+        {/* Leaves */}
+        <mesh castShadow position={[0, 0.85, 0]}>
+          <sphereGeometry args={[0.42, 12, 12]} />
+          <meshStandardMaterial color={getThemePlantLeafColor()} roughness={0.9} />
+        </mesh>
+        <mesh castShadow position={[-0.15, 1.15, 0.15]}>
+          <sphereGeometry args={[0.32, 12, 12]} />
+          <meshStandardMaterial color={getThemePlantLeafColor()} roughness={0.9} />
+        </mesh>
+        <mesh castShadow position={[0.18, 1.25, -0.1]}>
+          <sphereGeometry args={[0.26, 12, 12]} />
+          <meshStandardMaterial color={getThemePlantLeafColor()} roughness={0.9} />
+        </mesh>
+      </group>
+
+      {/* ---------------- FLOOR DECOR ---------------- */}
+      <group position={[6.45, 0.01, -4.35]}>
+        {/* Tall corner plant */}
+        <mesh castShadow position={[0, 0.18, 0]}>
+          <cylinderGeometry args={[0.22, 0.16, 0.36, 10]} />
+          <meshStandardMaterial color={getThemePlantPotColor()} roughness={0.85} />
+        </mesh>
+        <mesh castShadow position={[0, 0.58, 0]}>
+          <cylinderGeometry args={[0.035, 0.05, 0.7, 6]} />
+          <meshStandardMaterial color="#166534" roughness={0.8} />
+        </mesh>
+        {[
+          [-0.18, 0.95, 0.05, 0.22],
+          [0.18, 0.86, -0.04, 0.2],
+          [0.02, 1.12, 0.12, 0.18],
+          [-0.05, 0.78, -0.14, 0.19],
+        ].map(([x, y, z, radius], index) => (
+          <mesh key={index} castShadow position={[x, y, z]}>
+            <sphereGeometry args={[radius, 10, 10]} />
+            <meshStandardMaterial color={getThemePlantLeafColor()} roughness={0.9} />
+          </mesh>
+        ))}
+      </group>
+
+      <group position={[5.9, 0.01, 4.4]} rotation={[0, -0.15, 0]}>
+        {/* Storage cabinet */}
+        <mesh castShadow receiveShadow position={[0, 0.42, 0]}>
+          <boxGeometry args={[1.2, 0.84, 0.44]} />
+          <meshStandardMaterial color={theme === 'night' ? '#334155' : '#e5e7eb'} roughness={0.65} />
+        </mesh>
+        <mesh position={[0, 0.65, -0.23]}>
+          <boxGeometry args={[1.05, 0.03, 0.02]} />
+          <meshBasicMaterial color="#64748b" />
+        </mesh>
+        <mesh position={[0, 0.38, -0.23]}>
+          <boxGeometry args={[1.05, 0.03, 0.02]} />
+          <meshBasicMaterial color="#64748b" />
+        </mesh>
+        <mesh castShadow position={[-0.26, 0.92, -0.03]}>
+          <boxGeometry args={[0.34, 0.18, 0.36]} />
+          <meshStandardMaterial color="#2563eb" roughness={0.55} />
+        </mesh>
+        <mesh castShadow position={[0.18, 0.96, 0]}>
+          <boxGeometry args={[0.42, 0.24, 0.32]} />
+          <meshStandardMaterial color="#f59e0b" roughness={0.6} />
+        </mesh>
+      </group>
+
+      <group position={[-6.2, 0.01, 4.35]} rotation={[0, 0.2, 0]}>
+        {/* Parcel boxes */}
+        <mesh castShadow receiveShadow position={[0, 0.22, 0]}>
+          <boxGeometry args={[0.72, 0.44, 0.54]} />
+          <meshStandardMaterial color="#b45309" roughness={0.85} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[0.42, 0.16, -0.05]}>
+          <boxGeometry args={[0.46, 0.32, 0.42]} />
+          <meshStandardMaterial color="#d97706" roughness={0.85} />
+        </mesh>
+        <mesh castShadow receiveShadow position={[-0.18, 0.56, 0.02]}>
+          <boxGeometry args={[0.48, 0.28, 0.4]} />
+          <meshStandardMaterial color="#92400e" roughness={0.85} />
+        </mesh>
+        <mesh position={[0, 0.45, -0.28]}>
+          <boxGeometry args={[0.64, 0.03, 0.012]} />
+          <meshBasicMaterial color="#fef3c7" />
+        </mesh>
+      </group>
+
+      <group position={[-6.95, 0.01, -1.0]}>
+        {/* Floor lamp */}
+        <mesh castShadow position={[0, 0.04, 0]}>
+          <cylinderGeometry args={[0.22, 0.26, 0.08, 12]} />
+          <meshStandardMaterial color="#334155" roughness={0.55} metalness={0.2} />
+        </mesh>
+        <mesh castShadow position={[0, 0.68, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, 1.28, 8]} />
+          <meshStandardMaterial color="#475569" roughness={0.45} metalness={0.35} />
+        </mesh>
+        <mesh castShadow position={[0, 1.34, 0]}>
+          <coneGeometry args={[0.28, 0.36, 12]} />
+          <meshStandardMaterial color={theme === 'night' ? '#fde68a' : '#fef3c7'} roughness={0.5} />
+        </mesh>
+        <pointLight
+          position={[0, 1.25, 0]}
+          intensity={theme === 'night' ? 1.2 : theme === 'sunset' ? 0.8 : 0.35}
+          distance={3.2}
+          decay={1.7}
+          color="#fde68a"
+        />
+      </group>
+
+      {/* ---------------- HANGING CEILING LAMPS ---------------- */}
+      <HangingLamp position={[-3.5, 1.9, -0.5]} theme={theme} />
+      <HangingLamp position={[3.5, 1.9, 0.5]} theme={theme} />
+
+      {/* ---------------- WALL MOUNTED LAMPS ---------------- */}
+      {/* Left Wall Lamp */}
+      <WallLamp position={[-7.38, 1.6, -1.5]} rotationY={Math.PI / 2} theme={theme} />
+      {/* Back Wall Lamps */}
+      <WallLamp position={[-3.5, 1.6, -5.18]} rotationY={0} theme={theme} />
+      <WallLamp position={[0.5, 1.6, -5.18]} rotationY={0} theme={theme} />
+
+      {/* ---------------- CLICKABLE FLOORS (For Pathfinding triggers) ---------------- */}
       <mesh 
-        position={[0, 0.01, 0]} 
-        receiveShadow
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={(e) => {
-          e.stopPropagation();
-          document.body.style.cursor = 'auto';
-        }}
+        visible={false}
+        position={[0, 0.02, 0]} 
+        rotation={[-Math.PI / 2, 0, 0]}
         onClick={(e) => {
           e.stopPropagation();
           onSelectFloor(e.point);
         }}
       >
-        <cylinderGeometry args={[1.4, 1.4, 0.01, 30]} />
-        <meshStandardMaterial color={rugColor} roughness={1.0} />
+        <planeGeometry args={[14.8, 10.4]} />
       </mesh>
 
-      {/* Skirting board */}
-      <mesh position={[-7.38, 0.08, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.04, 0.16, 8.4]} />
-        <meshStandardMaterial color={skirtingColor} roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 0.08, -4.18]} castShadow receiveShadow>
-        <boxGeometry args={[14.8, 0.16, 0.04]} />
-        <meshStandardMaterial color={skirtingColor} roughness={0.7} />
-      </mesh>
-
-      {/* ---------------- WALLS (Extended for 14.8x8.4 Room) ---------------- */}
-      <mesh position={[-7.42, 1.25, 0]} receiveShadow>
-        <boxGeometry args={[0.04, 2.5, 8.4]} />
-        <meshStandardMaterial color={wallColor} roughness={0.8} />
-      </mesh>
-
-      <mesh position={[0, 1.25, -4.22]} receiveShadow>
-        <boxGeometry args={[14.8, 2.5, 0.04]} />
-        <meshStandardMaterial color={wallColor} roughness={0.8} />
-      </mesh>
-
-      {/* ---------------- FLOATING WALL TEXT ---------------- */}
-      <group position={[0, 1.75, -4.19]} rotation={[0, 0, 0]}>
-        <Text
-          fontSize={0.32}
-          color={getTextColor()}
-          anchorX="center"
-          anchorY="middle"
-          fontWeight="bold"
-          letterSpacing={0.02}
-          outlineWidth={0.02}
-          outlineColor={outlineColor}
-        >
-          Ufriend Virtual Office
-        </Text>
-      </group>
-
-      {/* Minimalist shelf */}
-      <group position={[-7.38, 1.4, 0.8]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[0.08, 0.04, 1.4]} />
-          <meshStandardMaterial color="#d97706" roughness={0.6} />
-        </mesh>
-        <mesh position={[-0.01, 0.12, -0.3]} rotation={[0, 0, 0.05]} castShadow>
-          <boxGeometry args={[0.06, 0.2, 0.15]} />
-          <meshStandardMaterial color="#3b82f6" roughness={0.7} />
-        </mesh>
-        <mesh position={[-0.01, 0.12, -0.12]} castShadow>
-          <boxGeometry args={[0.06, 0.22, 0.14]} />
-          <meshStandardMaterial color="#ef4444" roughness={0.7} />
-        </mesh>
-        <mesh position={[-0.01, 0.1, 0.02]} rotation={[0, 0, -0.15]} castShadow>
-          <boxGeometry args={[0.06, 0.18, 0.12]} />
-          <meshStandardMaterial color="#10b981" roughness={0.7} />
-        </mesh>
-        <group position={[-0.01, 0.08, 0.4]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.05, 0.04, 0.1, 8]} />
-            <meshStandardMaterial color="#475569" roughness={0.5} />
-          </mesh>
-          <mesh position={[0, 0.09, 0]} castShadow>
-            <sphereGeometry args={[0.06, 8, 8]} />
-            <meshStandardMaterial color="#84cc16" roughness={0.9} />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Window */}
-      <group position={[3.5, 1.4, -4.19]}>
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[1.4, 1.1, 0.02]} />
-          <meshStandardMaterial color={theme === 'night' ? '#334155' : '#ffffff'} roughness={0.5} />
-        </mesh>
-        <mesh position={[0, 0, 0.01]}>
-          <boxGeometry args={[1.3, 1.0, 0.005]} />
-          <meshStandardMaterial 
-            color={theme === 'night' ? '#1e1b4b' : theme === 'sunset' ? '#fdba74' : '#e0f2fe'} 
-            transparent 
-            opacity={0.6} 
-            roughness={0.1} 
-          />
-        </mesh>
-        <mesh position={[0, 0, 0.015]}>
-          <boxGeometry args={[0.03, 1.0, 0.01]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-        <mesh position={[0, 0, 0.015]}>
-          <boxGeometry args={[1.3, 0.03, 0.01]} />
-          <meshStandardMaterial color="#ffffff" />
-        </mesh>
-      </group>
-
-      {/* ---------------- POPULATED DESKS (Dynamic Desks and Sitter Swap) ---------------- */}
+      {/* ---------------- OFFICE DESKS RIG ---------------- */}
       {desks.map((desk) => {
-        // Calculate empty colleague chair position based on desk rotation
+        const deskX = desk.position[0];
+        const deskY = desk.position[1];
+        const deskZ = desk.position[2];
+
+        // Desk properties
+        const isDeskActive = activeDesk === desk.id;
+        const colorPalette = ['#e2e8f0', '#94a3b8', '#cb8a58', '#475569'];
+        const deskCol = colorPalette[desk.id % colorPalette.length];
+        
+        // Laptop base color
+        const laptopCol = isDeskActive ? '#3b82f6' : '#cbd5e1';
+
+        // Desk rotation
         const rotY = desk.rotationY || 0;
-        const offsetZ = -0.4 * Math.cos(rotY);
-        const offsetX = -0.4 * Math.sin(rotY);
+        const offsetX = -0.65 * Math.sin(rotY);
+        const offsetZ = -0.65 * Math.cos(rotY);
+
+        // NPC Sit placement
         const chairPos: [number, number, number] = [
-          desk.position[0] + offsetX,
-          0,
-          desk.position[2] + offsetZ
+          deskX + offsetX,
+          deskY,
+          deskZ + offsetZ
         ];
 
         return (
           <group key={desk.id}>
-            {/* Render the desk itself - always hasChair={false} because chair is part of Avatar or Colleague */}
+            {/* Desktop Object */}
             <OfficeDesk 
               id={desk.id}
-              position={desk.position} 
-              rotationY={desk.rotationY}
+              position={desk.position}
+              rotationY={rotY}
               hasLaptop={desk.hasLaptop}
               hasLamp={desk.hasLamp}
               hasPlant={desk.hasPlant}
               hasMug={desk.hasMug}
-              chairColor={desk.chairColor}
-              lampColor={desk.lampColor}
-              mugColor={desk.mugColor}
-              glowColor={desk.glowColor}
-              lightIntensity={desk.lightIntensity}
-              hasChair={false}
+              hasChair={true}
+              chairColor={desk.chairColor || '#cb8a58'}
+              lampColor={desk.lampColor || '#f43f5e'}
+              deskColor={deskCol}
+              laptopColor={laptopCol}
               onSelect={onSelectDesk}
               activeDesk={activeDesk}
               triggerSip={triggerSip}
@@ -668,12 +519,12 @@ export const IsometricRoom: React.FC<IsometricRoomProps> = ({
             />
 
             {/* If not active player desk, render a colleague typing and bobbing */}
-            {desk.id !== activeDesk && (
+            {desk.id !== activeDesk && desk.hasColleague !== false && (
               <Colleague 
                 id={desk.id}
                 position={chairPos}
                 rotationY={rotY}
-                chairColor={desk.chairColor || '#cb8a58'}
+                activeChatMessage={npcChatMessages[desk.id]}
               />
             )}
           </group>
