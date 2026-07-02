@@ -320,6 +320,7 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
   void FancyBuilding;
   void groundColor;
   void roadColor;
+  void streetlampColor;
 
   return (
     <group position={[0, -0.6, 0]}>
@@ -349,7 +350,7 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
       {/* Custom City Model */}
       <primitive object={cityScene} position={[52.69, 0.00, 9.15]} scale={[1, 1, 1]} />
 
-      {/* Decorative Cyber Streetlamps along the road */}
+      {/* Decorative Cyber Streetlamps along the road (Disabled)
       {useMemo(() => {
         const lamps = [];
         for (let i = 0; i < 12; i++) {
@@ -371,12 +372,10 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
                   polygonOffsetUnits={-1}
                 />
               </mesh>
-              {/* Lamp Pole */}
               <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
                 <cylinderGeometry args={[0.03, 0.05, 1.6, 5]} />
                 <meshStandardMaterial color="#475569" />
               </mesh>
-              {/* Light Bulb */}
               <mesh position={[0, 1.65, 0]} castShadow>
                 <sphereGeometry args={[0.1, 8, 8]} />
                 <meshStandardMaterial 
@@ -390,6 +389,7 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
         }
         return lamps;
       }, [theme, streetlampColor])}
+      */}
 
       {/* Particle Effects */}
       {theme === 'night' && (

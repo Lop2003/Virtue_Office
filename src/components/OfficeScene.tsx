@@ -304,7 +304,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         <OrbitControls
           enableDamping
           dampingFactor={0.05}
-          minZoom={10}
+          minZoom={60}
           maxZoom={250}
           minPolarAngle={Math.PI / 3.8}
           maxPolarAngle={Math.PI / 2.3}
