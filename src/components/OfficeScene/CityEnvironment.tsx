@@ -17,6 +17,17 @@ interface BuildingData {
   neonColor: string;
 }
 
+// Keep in sync with OrbitControls azimuth limits in OfficeScene.tsx
+const DEFAULT_CAMERA_AZIMUTH = Math.atan2(8, 8);
+const CAMERA_AZIMUTH_MIN = DEFAULT_CAMERA_AZIMUTH - Math.PI / 10;
+const CAMERA_AZIMUTH_MAX = DEFAULT_CAMERA_AZIMUTH + Math.PI / 1.6;
+// Exclude the full arc that can enter frame while orbiting the camera
+const VIEW_CORRIDOR_MIN = CAMERA_AZIMUTH_MIN - Math.PI / 2.2;
+const VIEW_CORRIDOR_MAX = CAMERA_AZIMUTH_MAX + Math.PI / 2.2;
+
+const isInViewCorridor = (angle: number) =>
+  angle > VIEW_CORRIDOR_MIN && angle < VIEW_CORRIDOR_MAX;
+
 // A helper to get theme-reactive colors
 const getThemeColors = (theme: 'day' | 'sunset' | 'night', style: number, neonColor: string) => {
   switch (theme) {
@@ -170,7 +181,7 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
           {theme !== 'day' && (
             <>
               <mesh position={[0, height * 0.7, 0]}>
-                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16, 1, true]} />
+                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
                 <meshStandardMaterial 
                   color={colors.neon} 
                   emissive={colors.neon} 
@@ -178,7 +189,7 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
                 />
               </mesh>
               <mesh position={[0, height * 0.4, 0]}>
-                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16, 1, true]} />
+                <cylinderGeometry args={[width / 2 + 0.02, width / 2 + 0.02, 0.2, 16]} />
                 <meshStandardMaterial 
                   color={colors.neon} 
                   emissive={colors.neon} 
@@ -251,13 +262,21 @@ const FancyBuilding: React.FC<{ data: BuildingData; theme: 'day' | 'sunset' | 'n
 };
 
 export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
-  // Generate random building positions with unique visual styles
+  // Generate random building positions with unique visual styles, avoiding the camera's line of sight
   const buildings = useMemo(() => {
     const items: BuildingData[] = [];
     const neonColors = ['#38bdf8', '#f43f5e', '#a855f7', '#10b981', '#fbbf24'];
 
-    for (let i = 0; i < 40; i++) {
+    let attempts = 0;
+    // Place buildings only in the far skyline arc (never in any orbit-pannable view corridor)
+    while (items.length < 24 && attempts < 300) {
+      attempts++;
       const angle = Math.random() * Math.PI * 2;
+
+      if (isInViewCorridor(angle)) {
+        continue;
+      }
+
       const radius = 13 + Math.random() * 19;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
@@ -269,7 +288,7 @@ export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ theme }) => {
       const neonColor = neonColors[Math.floor(Math.random() * neonColors.length)];
 
       items.push({ 
-        id: i, 
+        id: items.length, 
         position: [x, -0.1, z], 
         width, 
         depth, 
