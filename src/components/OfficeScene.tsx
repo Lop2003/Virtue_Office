@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera, OrbitControls } from "@react-three/drei";
 import { IsometricRoom } from "./IsometricRoom";
 import { Avatar } from "./Avatar";
@@ -19,6 +19,30 @@ import { DESK_CONFIGS } from "../utils/deskConfigs";
 import type { DeskConfig } from "../utils/deskConfigs";
 export { DESK_CONFIGS };
 export type { DeskConfig };
+
+// ── One-time shadow map setup (avoids R3F re-applying 'shadows' prop on every re-render) ──────────────
+const ShadowSetup: React.FC = () => {
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.shadowMap.enabled = true;
+    gl.shadowMap.type = THREE.PCFShadowMap; // non-deprecated replacement for PCFSoftShadowMap
+  }, [gl]);
+  return null;
+};
+
+// ── Remote players rendered in their own layer so only THIS subtree re-renders on socket events ────────
+const RemotePlayersLayer: React.FC = () => {
+  const { remotePlayers } = useMultiplayer();
+  return (
+    <>
+      {remotePlayers.map((rp) => (
+        <React.Suspense key={rp.id} fallback={null}>
+          <OtherPlayer player={rp} />
+        </React.Suspense>
+      ))}
+    </>
+  );
+};
 
 // ── Stable constants outside component (prevent Canvas from re-initialising WebGL on every re-render) ──
 const CANVAS_GL = {
@@ -55,15 +79,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   outfit,
   playerName,
 }) => {
-  const {
-    joinRoom,
-    sendMove,
-    sendDesk,
-    sendVolume,
-    sendChat,
-    remotePlayers,
-    remoteMessages,
-  } = useMultiplayer();
+  const { joinRoom, sendMove, sendDesk, sendVolume, sendChat, remoteMessages } =
+    useMultiplayer();
   const analyzer = useAudioAnalyzer();
 
   // Join the multiplayer room once on mount
@@ -331,7 +348,10 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
   return (
     <div className="w-full h-full relative">
-      <Canvas shadows dpr={CANVAS_DPR} gl={CANVAS_GL} className="w-full h-full">
+      <Canvas dpr={CANVAS_DPR} gl={CANVAS_GL} className="w-full h-full">
+        {/* Shadow map — configured once via useEffect, avoids R3F re-applying every render */}
+        <ShadowSetup />
+
         {/* --- 1. Isometric Camera Setup --- */}
         <OrthographicCamera
           makeDefault
@@ -401,12 +421,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
             />
           </React.Suspense>
 
-          {/* Remote players — each wrapped in Suspense so a crash doesn't black-out the whole scene */}
-          {remotePlayers.map((rp) => (
-            <React.Suspense key={rp.id} fallback={null}>
-              <OtherPlayer player={rp} />
-            </React.Suspense>
-          ))}
+          {/* Remote players — isolated layer, only this subtree re-renders on socket events */}
+          <RemotePlayersLayer />
 
           {/* 3D Emoji particles */}
           <EmojiParticles ref={emojiParticlesRef} />
