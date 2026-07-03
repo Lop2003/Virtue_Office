@@ -20,6 +20,16 @@ import type { DeskConfig } from "../utils/deskConfigs";
 export { DESK_CONFIGS };
 export type { DeskConfig };
 
+// ── Stable constants outside component (prevent Canvas from re-initialising WebGL on every re-render) ──
+const CANVAS_GL = {
+  antialias: true,
+  powerPreference: "high-performance" as const,
+  toneMapping: THREE.ACESFilmicToneMapping,
+  toneMappingExposure: 1.0,
+  outputColorSpace: THREE.SRGBColorSpace,
+};
+const CANVAS_DPR: [number, number] = [1, 2];
+
 interface OfficeSceneProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
   theme: "day" | "sunset" | "night";
@@ -321,18 +331,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
   return (
     <div className="w-full h-full relative">
-      <Canvas
-        shadows="soft"
-        dpr={[1, 2]}
-        gl={{
-          antialias: true,
-          powerPreference: "high-performance",
-          toneMapping: THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1.0,
-          outputColorSpace: THREE.SRGBColorSpace,
-        }}
-        className="w-full h-full"
-      >
+      <Canvas shadows dpr={CANVAS_DPR} gl={CANVAS_GL} className="w-full h-full">
         {/* --- 1. Isometric Camera Setup --- */}
         <OrthographicCamera
           makeDefault
