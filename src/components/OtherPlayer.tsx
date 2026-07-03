@@ -1,8 +1,17 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { Html } from "@react-three/drei";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
+import { Html, useAnimations, useGLTF } from "@react-three/drei";
 import type { RemotePlayer } from "../context/MultiplayerContext";
+import { CHARACTER_OPTIONS } from "../utils/avatarCharacters";
+
+const ROBOT_URL = "/RobotExpressive.glb";
+
+useGLTF.preload(ROBOT_URL);
+useGLTF.preload("/characters/CesiumMan.glb");
+useGLTF.preload("/characters/Soldier.glb");
+useGLTF.preload("/characters/Xbot.glb");
 
 // ── Shared geometries (created once, reused for every remote player) ──────────
 const RP_HEAD_GEO = new THREE.BoxGeometry(0.5, 0.5, 0.5);
@@ -40,6 +49,81 @@ const getStdMat = (color: string, roughness = 0.7) => {
   if (!matCache[key])
     matCache[key] = new THREE.MeshStandardMaterial({ color, roughness });
   return matCache[key] as THREE.MeshStandardMaterial;
+};
+
+const pickAction = (
+  actions: ReturnType<typeof useAnimations>["actions"],
+  patterns: RegExp[],
+) => {
+  for (const pattern of patterns) {
+    const match = Object.entries(actions).find(
+      ([name, action]) => action && pattern.test(name),
+    );
+    if (match?.[1]) return match[1];
+  }
+  return undefined;
+};
+
+const RemoteGltfAvatar: React.FC<{
+  modelUrl: string;
+  scale: number;
+  yOffset: number;
+  rotationY: number;
+  isWalking: boolean;
+  isSeated: boolean;
+  isRobot: boolean;
+}> = ({ modelUrl, scale, yOffset, rotationY, isWalking, isSeated, isRobot }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF(modelUrl);
+  const modelScene = React.useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions } = useAnimations(animations, groupRef);
+
+  useEffect(() => {
+    modelScene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+  }, [modelScene]);
+
+  useEffect(() => {
+    const modelActions = Object.values(actions).filter(Boolean);
+    const walkAction =
+      pickAction(actions, [/^walk/i, /walk/i, /^run/i, /run/i, /animation/i]) ||
+      modelActions[0];
+    const idleAction = pickAction(actions, [/^idle$/i, /idle/i, /stand/i]);
+    const sittingAction = pickAction(actions, [/^sitting$/i, /sitting/i, /sit/i]);
+    const nextAction = isWalking
+      ? walkAction
+      : isSeated && isRobot
+        ? sittingAction || idleAction
+        : idleAction;
+
+    modelActions.forEach((action) => {
+      if (action !== nextAction) action?.fadeOut(0.12);
+    });
+
+    if (nextAction) {
+      nextAction.reset().fadeIn(0.16).play();
+      nextAction.timeScale = isWalking ? 1.15 : 1;
+    }
+
+    return () => {
+      modelActions.forEach((action) => action?.fadeOut(0.12));
+    };
+  }, [actions, isRobot, isSeated, isWalking]);
+
+  return (
+    <group
+      ref={groupRef}
+      scale={scale}
+      position={[0, isSeated && isRobot ? yOffset + 0.45 : yOffset, isSeated ? 0.05 : 0]}
+      rotation={[0, rotationY, 0]}
+    >
+      <primitive object={modelScene} />
+    </group>
+  );
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -161,6 +245,24 @@ export const OtherPlayer: React.FC<OtherPlayerProps> = ({ player }) => {
   });
 
   const { outfit } = player;
+  const character = CHARACTER_OPTIONS.find((c) => c.id === outfit?.characterId);
+  const resolvedType = outfit?.type ?? character?.type ?? "human";
+  const resolvedModelUrl =
+    resolvedType === "robot"
+      ? ROBOT_URL
+      : outfit?.modelUrl || character?.modelUrl;
+  const resolvedModelScale = outfit?.modelScale ?? character?.modelScale ?? 1;
+  const resolvedModelYOffset = outfit?.modelYOffset ?? character?.modelYOffset ?? 0;
+  const resolvedForwardFix = ["xbot", "cesium-man"].includes(
+    outfit?.characterId ?? "",
+  )
+    ? 0
+    : Math.PI;
+  const resolvedModelRotationY =
+    (outfit?.modelRotationY ?? character?.modelRotationY ?? 0) +
+    resolvedForwardFix;
+  const shouldRenderGltf =
+    resolvedType === "robot" || (resolvedType === "model" && resolvedModelUrl);
   const clothingColor = outfit?.clothingColor ?? "#3b82f6";
   const skinTone = outfit?.skinTone ?? "#fed7aa";
   const hairColor = outfit?.hairColor ?? "#3b2314";
@@ -198,6 +300,18 @@ export const OtherPlayer: React.FC<OtherPlayerProps> = ({ player }) => {
         </Html>
       )}
 
+      {shouldRenderGltf && resolvedModelUrl ? (
+        <RemoteGltfAvatar
+          modelUrl={resolvedModelUrl}
+          scale={resolvedType === "robot" ? 0.28 : resolvedModelScale}
+          yOffset={resolvedModelYOffset}
+          rotationY={resolvedType === "robot" ? 0 : resolvedModelRotationY}
+          isWalking={player.isWalking}
+          isSeated={player.activeDesk !== null}
+          isRobot={resolvedType === "robot"}
+        />
+      ) : (
+        <>
       {/* ── Torso ──────────────────────────────────────────────────────────── */}
       <mesh
         position={[0, 0.7, 0]}
@@ -328,6 +442,8 @@ export const OtherPlayer: React.FC<OtherPlayerProps> = ({ player }) => {
           </group>
         )}
       </group>
+        </>
+      )}
     </group>
   );
 };
