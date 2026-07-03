@@ -22,6 +22,10 @@ interface DashboardProps {
   activeDesk: number | null;
   outfit: AvatarOutfit;
   setOutfit: React.Dispatch<React.SetStateAction<AvatarOutfit>>;
+  sunIntensityMulti: number;
+  setSunIntensityMulti: (val: number) => void;
+  ambientIntensityMulti: number;
+  setAmbientIntensityMulti: (val: number) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -33,7 +37,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   updateDesk,
   activeDesk,
   outfit,
-  setOutfit
+  setOutfit,
+  sunIntensityMulti,
+  setSunIntensityMulti,
+  ambientIntensityMulti,
+  setAmbientIntensityMulti
 }) => {
   const {
     status,
@@ -537,6 +545,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         updateDesk={updateDesk}
         outfit={outfit}
         setOutfit={setOutfit}
+        sunIntensityMulti={sunIntensityMulti}
+        setSunIntensityMulti={setSunIntensityMulti}
+        ambientIntensityMulti={ambientIntensityMulti}
+        setAmbientIntensityMulti={setAmbientIntensityMulti}
       />
 
       {/* ---------------- BOTTOM BAR / DASHBOARD OVERLAY ---------------- */}
