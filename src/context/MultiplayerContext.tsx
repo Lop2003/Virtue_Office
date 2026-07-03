@@ -50,6 +50,7 @@ interface MultiplayerContextType {
     isWalking: boolean,
   ) => void;
   sendDesk: (deskId: number | null) => void;
+  sendOutfit: (outfit: AvatarOutfit) => void;
   sendVolume: (volume: number) => void;
   sendChat: (text: string) => void;
   /** Returns true if deskId is claimed by ANOTHER player */
@@ -252,6 +253,16 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     });
 
+    socket.on("player:outfit", (data: { id: string; outfit: AvatarOutfit }) => {
+      setRemotePlayers((prev) =>
+        prev.map((p) =>
+          p.id === data.id
+            ? { ...p, outfit: normalizeRemotePlayer({ ...p, outfit: data.outfit }).outfit }
+            : p,
+        ),
+      );
+    });
+
     // Audio volume level — buffered, flushed at 20fps
     socket.on("player:volume", (data: { id: string; volume: number }) => {
       volumeBufferRef.current.set(data.id, data.volume);
@@ -336,6 +347,13 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     socketRef.current?.emit("desk", { deskId });
   }, []);
 
+  const sendOutfit = useCallback((outfit: AvatarOutfit) => {
+    if (joinPayloadRef.current) {
+      joinPayloadRef.current = { ...joinPayloadRef.current, outfit };
+    }
+    socketRef.current?.emit("outfit:update", { outfit });
+  }, []);
+
   const sendVolume = useCallback((volume: number) => {
     socketRef.current?.emit("volume", { volume });
   }, []);
@@ -363,6 +381,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
         joinRoom,
         sendMove,
         sendDesk,
+        sendOutfit,
         sendVolume,
         sendChat,
         isDeskClaimed,

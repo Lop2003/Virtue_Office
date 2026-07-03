@@ -77,7 +77,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   outfit,
   playerName,
 }) => {
-  const { joinRoom, sendMove, sendDesk, sendVolume, sendChat, remoteMessages } =
+  const { joinRoom, sendMove, sendDesk, sendOutfit, sendVolume, sendChat, remoteMessages } =
     useMultiplayer();
   const analyzer = useAudioAnalyzer();
 
@@ -86,6 +86,10 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     joinRoom(playerName, outfit, [0, 0, 0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    sendOutfit(outfit);
+  }, [outfit, sendOutfit]);
 
   // Broadcast volume level ~5×/s
   useEffect(() => {
