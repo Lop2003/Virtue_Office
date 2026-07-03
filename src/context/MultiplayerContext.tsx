@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  startTransition,
 } from "react";
 import { io, Socket } from "socket.io-client";
 import type { AvatarOutfit } from "../App";
@@ -100,18 +101,20 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
       if (moves.size === 0 && volumes.size === 0) return;
       moveBufferRef.current = new Map();
       volumeBufferRef.current = new Map();
-      setRemotePlayers((prev) =>
-        prev.map((p) => {
-          const m = moves.get(p.id);
-          const v = volumes.get(p.id);
-          if (!m && v === undefined) return p;
-          return {
-            ...p,
-            ...(m ?? {}),
-            ...(v !== undefined ? { volume: v } : {}),
-          };
-        }),
-      );
+      startTransition(() => {
+        setRemotePlayers((prev) =>
+          prev.map((p) => {
+            const m = moves.get(p.id);
+            const v = volumes.get(p.id);
+            if (!m && v === undefined) return p;
+            return {
+              ...p,
+              ...(m ?? {}),
+              ...(v !== undefined ? { volume: v } : {}),
+            };
+          }),
+        );
+      });
     }, 50);
     return () => clearInterval(flushId);
   }, []);
@@ -140,17 +143,21 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
     socket.on(
       "room:init",
       (data: { players: RemotePlayer[]; claimedDesks: [number, string][] }) => {
-        setRemotePlayers(data.players.filter((p) => p.id !== socket.id));
-        setClaimedDesks(new Map(data.claimedDesks));
+        startTransition(() => {
+          setRemotePlayers(data.players.filter((p) => p.id !== socket.id));
+          setClaimedDesks(new Map(data.claimedDesks));
+        });
       },
     );
 
     // New player joined the room
     socket.on("player:joined", (data: { player: RemotePlayer }) => {
-      setRemotePlayers((prev) => [
-        ...prev.filter((p) => p.id !== data.player.id),
-        data.player,
-      ]);
+      startTransition(() => {
+        setRemotePlayers((prev) => [
+          ...prev.filter((p) => p.id !== data.player.id),
+          data.player,
+        ]);
+      });
     });
 
     // Position / walk state update — buffered, flushed at 20fps
