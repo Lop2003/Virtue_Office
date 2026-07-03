@@ -402,9 +402,11 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
             />
           </React.Suspense>
 
-          {/* Remote players */}
+          {/* Remote players — each wrapped in Suspense so a crash doesn't black-out the whole scene */}
           {remotePlayers.map((rp) => (
-            <OtherPlayer key={rp.id} player={rp} />
+            <React.Suspense key={rp.id} fallback={null}>
+              <OtherPlayer player={rp} />
+            </React.Suspense>
           ))}
 
           {/* 3D Emoji particles */}
