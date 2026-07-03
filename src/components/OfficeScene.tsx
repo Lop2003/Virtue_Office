@@ -1,32 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
-import { OrthographicCamera, OrbitControls } from '@react-three/drei';
-import { IsometricRoom } from './IsometricRoom';
-import { Avatar } from './Avatar';
-import { EmojiParticles } from './EmojiParticles';
-import type { EmojiParticlesHandle } from './EmojiParticles';
-import { ChatBox } from './Chat/ChatBox';
-import type { ChatMessage } from './Chat/ChatBox';
-import type { AvatarOutfit } from '../App';
-import { OfficeLights } from './OfficeScene/OfficeLights';
-import { OuterEnvironment } from './OfficeScene/OuterEnvironment';
-import { CityEnvironment } from './OfficeScene/CityEnvironment';
-import { DESK_CONFIGS } from '../utils/deskConfigs';
-import type { DeskConfig } from '../utils/deskConfigs';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import * as THREE from "three";
+import { Canvas } from "@react-three/fiber";
+import { OrthographicCamera, OrbitControls } from "@react-three/drei";
+import { IsometricRoom } from "./IsometricRoom";
+import { Avatar } from "./Avatar";
+import { EmojiParticles } from "./EmojiParticles";
+import type { EmojiParticlesHandle } from "./EmojiParticles";
+import { ChatBox } from "./Chat/ChatBox";
+import type { ChatMessage } from "./Chat/ChatBox";
+import type { AvatarOutfit } from "../App";
+import { useMultiplayer } from "../context/MultiplayerContext";
+import { OtherPlayer } from "./OtherPlayer";
+import { useAudioAnalyzer } from "../context/AudioAnalyzerContext";
+import { OfficeLights } from "./OfficeScene/OfficeLights";
+import { OuterEnvironment } from "./OfficeScene/OuterEnvironment";
+import { CityEnvironment } from "./OfficeScene/CityEnvironment";
+import { DESK_CONFIGS } from "../utils/deskConfigs";
+import type { DeskConfig } from "../utils/deskConfigs";
 export { DESK_CONFIGS };
 export type { DeskConfig };
 
 interface OfficeSceneProps {
   emojiParticlesRef: React.RefObject<EmojiParticlesHandle | null>;
-  theme: 'day' | 'sunset' | 'night';
-  environmentType: 'nature' | 'city';
+  theme: "day" | "sunset" | "night";
+  environmentType: "nature" | "city";
   desks: DeskConfig[];
   sipTrigger: number;
   triggerSip: (deskPosition: [number, number, number]) => void;
   activeDesk: number | null;
   setActiveDesk: (id: number | null) => void;
   outfit: AvatarOutfit;
+  playerName: string;
 }
 
 export const OfficeScene: React.FC<OfficeSceneProps> = ({
@@ -38,20 +42,88 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   triggerSip,
   activeDesk,
   setActiveDesk,
-  outfit
+  outfit,
+  playerName,
 }) => {
+  const {
+    joinRoom,
+    sendMove,
+    sendDesk,
+    sendVolume,
+    sendChat,
+    remotePlayers,
+    remoteMessages,
+  } = useMultiplayer();
+  const analyzer = useAudioAnalyzer();
+
+  // Join the multiplayer room once on mount
+  useEffect(() => {
+    joinRoom(playerName, outfit, [0, 0, 0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Broadcast volume level ~5×/s
+  useEffect(() => {
+    const id = setInterval(() => sendVolume(analyzer.getVolume()), 200);
+    return () => clearInterval(id);
+  }, [analyzer, sendVolume]);
+
+  // Merge incoming remote chat messages into chatHistory
+  useEffect(() => {
+    if (remoteMessages.length === 0) return;
+    const msg = remoteMessages[remoteMessages.length - 1];
+    setChatHistory((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [
+        ...prev,
+        {
+          id: msg.id,
+          sender: msg.name,
+          text: msg.text,
+          timestamp: msg.timestamp,
+          isPlayer: false,
+        },
+      ];
+    });
+  }, [remoteMessages]);
+
+  // Throttled move handler passed to Avatar
+  const handleAvatarMove = useCallback(
+    (pos: [number, number, number], rotY: number, walking: boolean) => {
+      sendMove(pos, rotY, walking);
+    },
+    [sendMove],
+  );
+
   const [isWalking, setIsWalking] = useState<boolean>(false);
-  const [targetPosition, setTargetPosition] = useState<[number, number, number]>([0, 0, 0]); // Standing on rug
-  const [queuedTargetPosition, setQueuedTargetPosition] = useState<[number, number, number] | null>(null);
+  const [targetPosition, setTargetPosition] = useState<
+    [number, number, number]
+  >([0, 0, 0]); // Standing on rug
+  const [queuedTargetPosition, setQueuedTargetPosition] = useState<
+    [number, number, number] | null
+  >(null);
   const [pendingDeskId, setPendingDeskId] = useState<number | null>(null);
 
   // Chat states
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { id: '1', sender: 'ระบบ', text: 'ยินดีต้อนรับสู่ Ufriend Virtual Office! สามารถควบคุมด้วย WASD/ลูกศร หรือคลิกเดินได้ และพิมพ์ข้อความในช่องแชทซ้ายบนได้เลยครับ', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isPlayer: false }
+    {
+      id: "1",
+      sender: "ระบบ",
+      text: "ยินดีต้อนรับสู่ Ufriend Virtual Office! สามารถควบคุมด้วย WASD/ลูกศร หรือคลิกเดินได้ และพิมพ์ข้อความในช่องแชทซ้ายบนได้เลยครับ",
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      isPlayer: false,
+    },
   ]);
-  const [playerChatMessage, setPlayerChatMessage] = useState<string | null>(null);
-  const [npcChatMessages, setNpcChatMessages] = useState<Record<number, string | null>>({});
-  const [chatInput, setChatInput] = useState<string>('');
+  const [playerChatMessage, setPlayerChatMessage] = useState<string | null>(
+    null,
+  );
+  const [npcChatMessages, setNpcChatMessages] = useState<
+    Record<number, string | null>
+  >({});
+  const [chatInput, setChatInput] = useState<string>("");
 
   const playerChatTimerRef = useRef<any>(null);
   const npcTimersRef = useRef<Record<number, any>>({});
@@ -60,10 +132,14 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     if (e) e.preventDefault();
     if (!chatInput.trim()) return;
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    sendChat(chatInput.trim());
     const newMessage = {
       id: Math.random().toString(),
-      sender: 'คุณ',
+      sender: playerName,
       text: chatInput.trim(),
       timestamp: timeStr,
       isPlayer: true,
@@ -71,7 +147,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
     setChatHistory((prev) => [...prev, newMessage]);
     setPlayerChatMessage(chatInput.trim());
-    setChatInput('');
+    setChatInput("");
 
     // Clear old timer and start a new 5-second timer for player's speech bubble
     if (playerChatTimerRef.current) {
@@ -85,7 +161,27 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
   // Simulate other colleagues randomly typing in chat
   useEffect(() => {
-    const npcNames = ["เอ็ม", "บิว", "จอย", "ป๊อป", "นิว", "กิ๊ฟ", "ท็อป", "แป้ง", "อาร์ต", "เบล", "เต้ย", "แนน", "บอส", "เจมส์", "พราว", "โอ๊ต", "ตั้ม", "เนย", "พีท"];
+    const npcNames = [
+      "เอ็ม",
+      "บิว",
+      "จอย",
+      "ป๊อป",
+      "นิว",
+      "กิ๊ฟ",
+      "ท็อป",
+      "แป้ง",
+      "อาร์ต",
+      "เบล",
+      "เต้ย",
+      "แนน",
+      "บอส",
+      "เจมส์",
+      "พราว",
+      "โอ๊ต",
+      "ตั้ม",
+      "เนย",
+      "พีท",
+    ];
     const npcMessages = [
       "ใครเอาขนมปังเนยสดของผมในตู้เย็นไปป่ะครับ? 😭",
       "ประชุมบ่ายนี้ขอนั่งฟังเงียบๆ นะครับ งานล้นมือมาก",
@@ -103,13 +199,20 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
     const interval = setInterval(() => {
       // Find desks with colleagues that are not active player desk
-      const activeColleagues = desks.filter((d) => d.hasColleague !== false && d.id !== activeDesk);
+      const activeColleagues = desks.filter(
+        (d) => d.hasColleague !== false && d.id !== activeDesk,
+      );
       if (activeColleagues.length === 0) return;
 
-      const randomDesk = activeColleagues[Math.floor(Math.random() * activeColleagues.length)];
-      const randomText = npcMessages[Math.floor(Math.random() * npcMessages.length)];
+      const randomDesk =
+        activeColleagues[Math.floor(Math.random() * activeColleagues.length)];
+      const randomText =
+        npcMessages[Math.floor(Math.random() * npcMessages.length)];
       const senderName = npcNames[randomDesk.id % npcNames.length];
-      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
       const newMsg = {
         id: Math.random().toString(),
@@ -138,7 +241,6 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         }));
         delete npcTimersRef.current[randomDesk.id];
       }, 5000);
-
     }, 20000); // Send message every 20 seconds
 
     return () => {
@@ -154,6 +256,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     setQueuedTargetPosition(null);
     setIsWalking(true);
     setActiveDesk(null);
+    sendDesk(null);
 
     const destDesk = desks[id];
     const rotY = destDesk.rotationY || 0;
@@ -166,7 +269,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     setTargetPosition([
       destDesk.position[0] + chairDirectionX * seatDistance,
       0,
-      destDesk.position[2] + chairDirectionZ * seatDistance
+      destDesk.position[2] + chairDirectionZ * seatDistance,
     ]);
   };
 
@@ -183,6 +286,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
     setPendingDeskId(null);
     setActiveDesk(null);
     setIsWalking(false);
+    sendDesk(null);
   };
 
   const handleSelectFloor = (point: THREE.Vector3) => {
@@ -202,7 +306,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         setTargetPosition([
           desk.position[0] + offsetX,
           0,
-          desk.position[2] + offsetZ
+          desk.position[2] + offsetZ,
         ]);
         return;
       }
@@ -244,7 +348,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         {/* --- 3. Scene Content --- */}
         <group position={[0, -0.6, 0]}>
           {/* Outer Stylized Environment */}
-          {environmentType === 'nature' ? (
+          {environmentType === "nature" ? (
             <OuterEnvironment theme={theme} />
           ) : (
             <CityEnvironment theme={theme} />
@@ -280,6 +384,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
 
                 if (pendingDeskId !== null) {
                   setActiveDesk(pendingDeskId);
+                  sendDesk(pendingDeskId);
                   setPendingDeskId(null);
                 }
 
@@ -293,8 +398,14 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
               onStandUp={handleStandUp}
               activeChatMessage={playerChatMessage}
               theme={theme}
+              onMove={handleAvatarMove}
             />
           </React.Suspense>
+
+          {/* Remote players */}
+          {remotePlayers.map((rp) => (
+            <OtherPlayer key={rp.id} player={rp} />
+          ))}
 
           {/* 3D Emoji particles */}
           <EmojiParticles ref={emojiParticlesRef} />
