@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import type { AvatarOutfit } from "../App";
+import { CHARACTER_OPTIONS } from "../utils/avatarCharacters";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface RemotePlayer {
@@ -68,6 +69,49 @@ export const useMultiplayer = (): MultiplayerContextType => {
 const BACKEND_URL =
   (import.meta as any).env?.VITE_BACKEND_URL ?? "http://localhost:3001";
 
+const DEFAULT_REMOTE_OUTFIT: AvatarOutfit = {
+  type: "human",
+  characterId: "human",
+  hairStyle: "short",
+  hairColor: "#3b2314",
+  clothingStyle: "hoodie",
+  clothingColor: "#3b82f6",
+  skinTone: "#fed7aa",
+  hasGlasses: false,
+  hasHeadphones: false,
+};
+
+const normalizeRemotePlayer = (player: Partial<RemotePlayer> & Record<string, any>): RemotePlayer => {
+  const outfit = player.outfit || player.avatar || {};
+  const characterId =
+    outfit.characterId ??
+    player.characterId ??
+    player.avatarId ??
+    DEFAULT_REMOTE_OUTFIT.characterId;
+  const character = CHARACTER_OPTIONS.find((c) => c.id === characterId);
+
+  return {
+    id: String(player.id ?? player.socketId ?? ""),
+    name: String(player.name ?? "Player"),
+    position: Array.isArray(player.position) ? player.position : [0, 0, 0],
+    rotationY: typeof player.rotationY === "number" ? player.rotationY : 0,
+    outfit: {
+      ...DEFAULT_REMOTE_OUTFIT,
+      ...outfit,
+      type: outfit.type ?? character?.type ?? DEFAULT_REMOTE_OUTFIT.type,
+      characterId,
+      modelUrl: outfit.modelUrl ?? character?.modelUrl,
+      modelScale: outfit.modelScale ?? character?.modelScale,
+      modelYOffset: outfit.modelYOffset ?? character?.modelYOffset,
+      modelRotationY: outfit.modelRotationY ?? character?.modelRotationY,
+    },
+    activeDesk: player.activeDesk ?? player.deskId ?? null,
+    volume: typeof player.volume === "number" ? player.volume : 0,
+    isWalking: Boolean(player.isWalking),
+    chatMessage: player.chatMessage ?? null,
+  };
+};
+
 export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -80,6 +124,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const socketRef = useRef<Socket | null>(null);
+  const joinPayloadRef = useRef<{
+    name: string;
+    outfit: AvatarOutfit;
+    position: [number, number, number];
+  } | null>(null);
   // Buffer for high-frequency move/volume events — flushed at 20fps to avoid excessive re-renders
   const moveBufferRef = useRef<
     Map<
@@ -131,6 +180,9 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsConnected(true);
       setMyId(socket.id ?? null);
       console.log("[Multiplayer] Connected:", socket.id);
+      if (joinPayloadRef.current) {
+        socket.emit("join", joinPayloadRef.current);
+      }
     });
 
     socket.on("disconnect", () => {
@@ -144,7 +196,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
       "room:init",
       (data: { players: RemotePlayer[]; claimedDesks: [number, string][] }) => {
         startTransition(() => {
-          setRemotePlayers(data.players.filter((p) => p.id !== socket.id));
+          setRemotePlayers(
+            data.players
+              .map((p) => normalizeRemotePlayer(p as any))
+              .filter((p) => p.id && p.id !== socket.id),
+          );
           setClaimedDesks(new Map(data.claimedDesks));
         });
       },
@@ -152,10 +208,11 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // New player joined the room
     socket.on("player:joined", (data: { player: RemotePlayer }) => {
+      const player = normalizeRemotePlayer(data.player as any);
       startTransition(() => {
         setRemotePlayers((prev) => [
-          ...prev.filter((p) => p.id !== data.player.id),
-          data.player,
+          ...prev.filter((p) => p.id !== player.id),
+          player,
         ]);
       });
     });
@@ -258,6 +315,7 @@ export const MultiplayerProvider: React.FC<{ children: React.ReactNode }> = ({
       outfit: AvatarOutfit,
       position: [number, number, number],
     ) => {
+      joinPayloadRef.current = { name, outfit, position };
       socketRef.current?.emit("join", { name, outfit, position });
     },
     [],

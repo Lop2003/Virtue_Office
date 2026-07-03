@@ -64,6 +64,35 @@ const pickAction = (
   return undefined;
 };
 
+const RemoteModelFallback: React.FC<{
+  clothingColor: string;
+  skinTone: string;
+}> = ({ clothingColor, skinTone }) => (
+  <group>
+    <mesh position={[0, 0.7, 0]} castShadow geometry={RP_TORSO_GEO} material={getStdMat(clothingColor)} />
+    <mesh position={[0, 1.25, 0]} castShadow geometry={RP_HEAD_GEO} material={getStdMat(skinTone, 0.5)} />
+  </group>
+);
+
+class RemoteModelBoundary extends React.Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.warn("[Multiplayer] Remote model failed, using fallback:", error);
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
+
 const RemoteGltfAvatar: React.FC<{
   modelUrl: string;
   scale: number;
@@ -301,15 +330,33 @@ export const OtherPlayer: React.FC<OtherPlayerProps> = ({ player }) => {
       )}
 
       {shouldRenderGltf && resolvedModelUrl ? (
-        <RemoteGltfAvatar
-          modelUrl={resolvedModelUrl}
-          scale={resolvedType === "robot" ? 0.28 : resolvedModelScale}
-          yOffset={resolvedModelYOffset}
-          rotationY={resolvedType === "robot" ? 0 : resolvedModelRotationY}
-          isWalking={player.isWalking}
-          isSeated={player.activeDesk !== null}
-          isRobot={resolvedType === "robot"}
-        />
+        <RemoteModelBoundary
+          fallback={
+            <RemoteModelFallback
+              clothingColor={clothingColor}
+              skinTone={skinTone}
+            />
+          }
+        >
+          <React.Suspense
+            fallback={
+              <RemoteModelFallback
+                clothingColor={clothingColor}
+                skinTone={skinTone}
+              />
+            }
+          >
+            <RemoteGltfAvatar
+              modelUrl={resolvedModelUrl}
+              scale={resolvedType === "robot" ? 0.28 : resolvedModelScale}
+              yOffset={resolvedModelYOffset}
+              rotationY={resolvedType === "robot" ? 0 : resolvedModelRotationY}
+              isWalking={player.isWalking}
+              isSeated={player.activeDesk !== null}
+              isRobot={resolvedType === "robot"}
+            />
+          </React.Suspense>
+        </RemoteModelBoundary>
       ) : (
         <>
       {/* ── Torso ──────────────────────────────────────────────────────────── */}

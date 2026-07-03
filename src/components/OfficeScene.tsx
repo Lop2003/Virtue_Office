@@ -36,9 +36,7 @@ const RemotePlayersLayer: React.FC = () => {
   return (
     <>
       {remotePlayers.map((rp) => (
-        <React.Suspense key={rp.id} fallback={null}>
-          <OtherPlayer player={rp} />
-        </React.Suspense>
+        <OtherPlayer key={rp.id} player={rp} />
       ))}
     </>
   );
