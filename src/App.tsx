@@ -53,6 +53,9 @@ function App() {
     hasHeadphones: false,
   });
 
+  const [sunIntensityMulti, setSunIntensityMulti] = useState<number>(1.0);
+  const [ambientIntensityMulti, setAmbientIntensityMulti] = useState<number>(1.0);
+
   const selectCharacter = (character: CharacterOption) => {
     setOutfit((prev) => ({
       ...prev,
@@ -229,6 +232,8 @@ function App() {
                   setActiveDesk={setActiveDesk}
                   outfit={outfit}
                   playerName={playerName.trim() || "Player"}
+                  sunIntensityMulti={sunIntensityMulti}
+                  ambientIntensityMulti={ambientIntensityMulti}
                 />
               </div>
 
@@ -243,6 +248,10 @@ function App() {
                 activeDesk={activeDesk}
                 outfit={outfit}
                 setOutfit={setOutfit}
+                sunIntensityMulti={sunIntensityMulti}
+                setSunIntensityMulti={setSunIntensityMulti}
+                ambientIntensityMulti={ambientIntensityMulti}
+                setAmbientIntensityMulti={setAmbientIntensityMulti}
               />
             </>
           )}

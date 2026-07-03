@@ -25,7 +25,7 @@ const ShadowSetup: React.FC = () => {
   const { gl } = useThree();
   useEffect(() => {
     gl.shadowMap.enabled = true;
-    gl.shadowMap.type = THREE.PCFShadowMap; // non-deprecated replacement for PCFSoftShadowMap
+    gl.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, more beautiful shadows
   }, [gl]);
   return null;
 };
@@ -63,6 +63,8 @@ interface OfficeSceneProps {
   setActiveDesk: (id: number | null) => void;
   outfit: AvatarOutfit;
   playerName: string;
+  sunIntensityMulti?: number;
+  ambientIntensityMulti?: number;
 }
 
 export const OfficeScene: React.FC<OfficeSceneProps> = ({
@@ -76,6 +78,8 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
   setActiveDesk,
   outfit,
   playerName,
+  sunIntensityMulti = 1,
+  ambientIntensityMulti = 1,
 }) => {
   const { joinRoom, sendMove, sendDesk, sendOutfit, sendVolume, sendChat, remoteMessages } =
     useMultiplayer();
@@ -364,7 +368,11 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         />
 
         {/* --- 2. Lighting System (Dynamic Theme) --- */}
-        <OfficeLights theme={theme} />
+        <OfficeLights 
+          theme={theme} 
+          sunIntensityMulti={sunIntensityMulti} 
+          ambientIntensityMulti={ambientIntensityMulti} 
+        />
 
         {/* --- 3. Scene Content --- */}
         <group position={[0, -0.6, 0]}>
@@ -434,7 +442,7 @@ export const OfficeScene: React.FC<OfficeSceneProps> = ({
         <OrbitControls
           enableDamping
           dampingFactor={0.05}
-          minZoom={60}
+          minZoom={10}
           maxZoom={250}
           minPolarAngle={Math.PI / 3.8}
           maxPolarAngle={Math.PI / 2.3}

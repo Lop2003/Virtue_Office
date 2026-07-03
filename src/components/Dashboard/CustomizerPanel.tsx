@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Armchair, Shirt, Minus, Square } from 'lucide-react';
+import { Sparkles, Armchair, Shirt, Minus, Square, Sun } from 'lucide-react';
 import type { DeskConfig } from '../OfficeScene';
 import type { AvatarOutfit } from '../../App';
 import { CHARACTER_OPTIONS, type CharacterOption } from '../../utils/avatarCharacters';
@@ -11,6 +11,10 @@ interface CustomizerPanelProps {
   updateDesk: (deskId: number, updates: Partial<DeskConfig>) => void;
   outfit: AvatarOutfit;
   setOutfit: React.Dispatch<React.SetStateAction<AvatarOutfit>>;
+  sunIntensityMulti: number;
+  setSunIntensityMulti: (val: number) => void;
+  ambientIntensityMulti: number;
+  setAmbientIntensityMulti: (val: number) => void;
 }
 
 export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
@@ -18,9 +22,13 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
   desks,
   updateDesk,
   outfit,
-  setOutfit
+  setOutfit,
+  sunIntensityMulti,
+  setSunIntensityMulti,
+  ambientIntensityMulti,
+  setAmbientIntensityMulti
 }) => {
-  const [activeTab, setActiveTab] = useState<'desk' | 'avatar'>('avatar');
+  const [activeTab, setActiveTab] = useState<'desk' | 'avatar' | 'light'>('avatar');
   const [isMinimized, setIsMinimized] = useState(false);
   
   const selectCharacter = (character: CharacterOption) => {
@@ -60,17 +68,18 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
           {!isMinimized && (
             <>
           {/* Tab Header (Only show tab switcher if seated) */}
-          {activeDesk !== null && (
-            <div className="grid grid-cols-2 gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50">
-              <button
-                onClick={() => setActiveTab('desk')}
-                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
-                  activeTab === 'desk' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Armchair size={12} />
-                <span>Desk</span>
-              </button>
+            <div className={`grid ${activeDesk !== null ? 'grid-cols-3' : 'grid-cols-2'} gap-1 bg-slate-900/5 p-0.5 rounded-xl border border-slate-200/50`}>
+              {activeDesk !== null && (
+                <button
+                  onClick={() => setActiveTab('desk')}
+                  className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
+                    activeTab === 'desk' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Armchair size={12} />
+                  <span>Desk</span>
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('avatar')}
                 className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
@@ -80,8 +89,16 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                 <Shirt size={12} />
                 <span>Avatar</span>
               </button>
+              <button
+                onClick={() => setActiveTab('light')}
+                className={`py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center space-x-1 ${
+                  activeTab === 'light' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Sun size={12} />
+                <span>Light</span>
+              </button>
             </div>
-          )}
 
           {/* TAB CONTENT: DESK */}
           {activeDesk !== null && activeTab === 'desk' && (
@@ -123,7 +140,7 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
           )}
 
           {/* TAB CONTENT: AVATAR */}
-          {(activeDesk === null || activeTab === 'avatar') && (
+          {activeTab === 'avatar' && (
             <div className="flex flex-col space-y-4">
               
               {/* Character Selector */}
@@ -215,6 +232,36 @@ export const CustomizerPanel: React.FC<CustomizerPanelProps> = ({
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* TAB CONTENT: LIGHT */}
+          {activeTab === 'light' && (
+            <div className="flex flex-col space-y-4">
+              <div className="flex flex-col space-y-2">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Sunlight (Directional)</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.1"
+                  value={sunIntensityMulti}
+                  onChange={(e) => setSunIntensityMulti(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+              </div>
+              <div className="flex flex-col space-y-2">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide">Ambient & Shadows</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="3"
+                  step="0.1"
+                  value={ambientIntensityMulti}
+                  onChange={(e) => setAmbientIntensityMulti(parseFloat(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+              </div>
             </div>
           )}
             </>

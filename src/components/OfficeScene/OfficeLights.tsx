@@ -2,21 +2,27 @@ import React from 'react';
 
 interface OfficeLightsProps {
   theme: 'day' | 'sunset' | 'night';
+  sunIntensityMulti?: number;
+  ambientIntensityMulti?: number;
 }
 
-export const OfficeLights: React.FC<OfficeLightsProps> = ({ theme }) => {
+export const OfficeLights: React.FC<OfficeLightsProps> = ({ 
+  theme,
+  sunIntensityMulti = 1,
+  ambientIntensityMulti = 1
+}) => {
   // Theme-dependent light configurations
   const getThemeLights = () => {
     switch (theme) {
       case 'sunset':
         return {
-          ambientIntensity: 0.48,
+          ambientIntensity: 0.35,
           ambientColor: '#f6ad55', // amber-orange
           hemiSkyColor: '#ffe0b2',
           hemiGroundColor: '#5a3414',
-          hemiIntensity: 0.52,
+          hemiIntensity: 0.45,
           dirPosition: [12, 4.2, 7] as [number, number, number],
-          dirIntensity: 1.9,
+          dirIntensity: 2.8,
           dirColor: '#ffb347', // golden sunset glow
           fillIntensity: 0.82,
           fillColor: '#ffd166' // warm gold fill
@@ -36,15 +42,15 @@ export const OfficeLights: React.FC<OfficeLightsProps> = ({ theme }) => {
         };
       default: // day
         return {
-          ambientIntensity: 0.72,
+          ambientIntensity: 0.45,
           ambientColor: '#f8fafc', // clean daylight
           hemiSkyColor: '#fff6c9',
           hemiGroundColor: '#cbd5e1',
-          hemiIntensity: 0.7,
-          dirPosition: [7, 14, 5] as [number, number, number],
-          dirIntensity: 2.75,
-          dirColor: '#fff4d1', // bright sun
-          fillIntensity: 0.8,
+          hemiIntensity: 0.45,
+          dirPosition: [8, 12, 6] as [number, number, number],
+          dirIntensity: 3.5,
+          dirColor: '#ffe6a0', // warm bright sun
+          fillIntensity: 0.6,
           fillColor: '#dbeafe'
         };
     }
@@ -54,16 +60,19 @@ export const OfficeLights: React.FC<OfficeLightsProps> = ({ theme }) => {
 
   return (
     <>
-      <ambientLight intensity={lights.ambientIntensity} color={lights.ambientColor} />
+      <ambientLight 
+        intensity={lights.ambientIntensity * ambientIntensityMulti} 
+        color={lights.ambientColor} 
+      />
       <hemisphereLight 
         color={lights.hemiSkyColor} 
         groundColor={lights.hemiGroundColor} 
-        intensity={lights.hemiIntensity} 
+        intensity={lights.hemiIntensity * ambientIntensityMulti} 
       />
       <directionalLight
         castShadow={theme !== 'night'}
         position={lights.dirPosition}
-        intensity={lights.dirIntensity}
+        intensity={lights.dirIntensity * sunIntensityMulti}
         color={lights.dirColor}
         shadow-mapSize-width={theme === 'day' ? 2048 : theme === 'sunset' ? 1536 : 0}
         shadow-mapSize-height={theme === 'day' ? 2048 : theme === 'sunset' ? 1536 : 0}
